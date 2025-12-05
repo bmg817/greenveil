@@ -8,6 +8,9 @@ namespace Greenveil.Combat
 
     public class CombatCharacter : MonoBehaviour
     {
+        [Header("Configuration")]
+        [SerializeField] private CharacterConfig config;
+        
         [Header("Identity")]
         [SerializeField] private string characterName = "Character";
         [SerializeField] private CharacterRole role = CharacterRole.Damage;
@@ -43,12 +46,29 @@ namespace Greenveil.Combat
         public ElementType PrimaryElement => primaryElement;
         public bool IsAlive => isAlive;
         public List<StatusEffect> ActiveStatusEffects => activeStatusEffects;
+        public CharacterConfig Config => config;
 
         private void Awake()
         {
+            if (config != null)
+                ApplyConfig(config);
+            
             currentHealth = maxHealth;
             currentMP = maxMP;
             Debug.Log($"[{characterName}] Initialized - HP: {currentHealth}/{maxHealth}, MP: {currentMP}/{maxMP}");
+        }
+
+        public void ApplyConfig(CharacterConfig cfg)
+        {
+            config = cfg;
+            characterName = cfg.characterName;
+            role = cfg.role;
+            maxHealth = cfg.maxHealth;
+            maxMP = cfg.maxMP;
+            attack = cfg.attack;
+            defense = cfg.defense;
+            speed = cfg.speed;
+            primaryElement = cfg.primaryElement;
         }
 
         public void TakeDamage(float damage, ElementType damageElement = ElementType.Neutral)
