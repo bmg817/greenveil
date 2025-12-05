@@ -3,22 +3,14 @@ using UnityEngine.InputSystem;
 using System.Collections.Generic;
 using Greenveil.Combat;
 
-/// <summary>
-/// Combat test script with actual combat actions
-/// FIXED: Added skill usage that consumes MP to verify MP system works
-/// </summary>
 public class CombatStarter : MonoBehaviour
 {
     [Header("Combat Participants")]
     [SerializeField] private CombatCharacter playerCharacter;
     [SerializeField] private CombatCharacter enemyCharacter;
     
-    [Header("Test Abilities (Optional)")]
+    [Header("Test Abilities")]
     [SerializeField] private Ability testSkill;
-    
-    [Header("Debug - Test MP System")]
-    [SerializeField] private bool useBuiltInTestSkills = true;
-    [SerializeField] private float testSkillMPCost = 30f;  // Percentage
     
     private TurnOrderManager turnManager;
     private CombatActionExecutor actionExecutor;
@@ -31,46 +23,36 @@ public class CombatStarter : MonoBehaviour
         actionExecutor = GetComponent<CombatActionExecutor>();
         autoCombatHUD = GetComponent<AutoCombatHUD>();
         
-        if (turnManager == null)
+        if (turnManager == null || actionExecutor == null)
         {
-            Debug.LogError("No TurnOrderManager found!");
-            return;
-        }
-
-        if (actionExecutor == null)
-        {
-            Debug.LogError("No CombatActionExecutor found! Add it to CombatManager.");
+            Debug.LogError("Missing TurnOrderManager or CombatActionExecutor!");
             return;
         }
         
         if (playerCharacter == null || enemyCharacter == null)
         {
-            Debug.LogError("Please assign Player and Enemy characters!");
+            Debug.LogError("Assign Player and Enemy characters!");
             return;
         }
         
-        // Register characters with HUD if available
         if (autoCombatHUD != null)
         {
-            autoCombatHUD.RegisterCharacter(playerCharacter, isPlayer: true);
-            autoCombatHUD.RegisterCharacter(enemyCharacter, isPlayer: false);
+            autoCombatHUD.RegisterCharacter(playerCharacter, true);
+            autoCombatHUD.RegisterCharacter(enemyCharacter, false);
         }
         
-        // Collect all character visuals
         var playerVisual = playerCharacter.GetComponent<CharacterVisual>();
         var enemyVisual = enemyCharacter.GetComponent<CharacterVisual>();
         if (playerVisual != null) allVisuals.Add(playerVisual);
         if (enemyVisual != null) allVisuals.Add(enemyVisual);
         
-        // Subscribe to turn events
         turnManager.OnTurnStart += OnCharacterTurnStart;
         
-        // Create lists of combatants
         List<CombatCharacter> players = new List<CombatCharacter> { playerCharacter };
         List<CombatCharacter> enemies = new List<CombatCharacter> { enemyCharacter };
         
-        // Start combat!
         Debug.Log("Starting combat...");
+        Debug.Log($"Player MP: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
         turnManager.InitializeCombat(players, enemies);
         
         PrintControls();
@@ -78,163 +60,101 @@ public class CombatStarter : MonoBehaviour
 
     void PrintControls()
     {
-        Debug.Log("=== COMBAT CONTROLS ===");
-        Debug.Log("SPACE = Basic Attack (restores 20% MP)");
-        Debug.Log($"1 = Test Skill (costs {testSkillMPCost}% MP)");
-        Debug.Log("2 = Heavy Skill (costs 50% MP)");
-        Debug.Log("F = Attempt Flee");
-        Debug.Log("D = Defend");
-        Debug.Log("======================");
+        Debug.Log("=== CONTROLS ===");
+        Debug.Log("SPACE = Attack (+20% MP)");
+        Debug.Log("1 = Skill 30% | 2 = Skill 50% | 3 = Skill 20%");
+        Debug.Log("T = TEST: Drain 10 MP");
+        Debug.Log("================");
     }
 
     void OnCharacterTurnStart(CombatCharacter character)
     {
-        // Update visuals
         foreach (var visual in allVisuals)
-        {
-            if (visual != null)
-            {
-                visual.SetActive(false);
-            }
-        }
+            if (visual != null) visual.SetActive(false);
         
         CharacterVisual currentVisual = character.GetComponent<CharacterVisual>();
-        if (currentVisual != null)
-        {
-            currentVisual.SetActive(true);
-        }
+        if (currentVisual != null) currentVisual.SetActive(true);
 
-        // If it's an enemy turn, auto-attack
         if (character == enemyCharacter)
-        {
             Invoke(nameof(EnemyAutoAttack), 1f);
-        }
     }
 
     void EnemyAutoAttack()
     {
-        // Enemy automatically attacks the player
         CombatAction action = CombatActionExecutor.CreateAttackAction(enemyCharacter, playerCharacter);
         actionExecutor.ExecuteAction(action);
-        
-        // End turn after 0.5 seconds
         Invoke(nameof(EndCurrentTurn), 0.5f);
     }
 
     void Update()
     {
+        if (Keyboard.current.tKey.wasPressedThisFrame)
+        {
+            TestDrainMP();
+            return;
+        }
+
         if (!turnManager.IsCombatActive) return;
         if (turnManager.CurrentCharacter != playerCharacter) return;
 
-        // SPACE = Basic Attack (restores MP)
         if (Keyboard.current.spaceKey.wasPressedThisFrame)
-        {
             PerformBasicAttack();
-        }
 
-        // 1 = Test Skill (consumes MP)
         if (Keyboard.current.digit1Key.wasPressedThisFrame)
-        {
-            if (testSkill != null)
-            {
-                PerformSkill();
-            }
-            else if (useBuiltInTestSkills)
-            {
-                PerformTestSkill(testSkillMPCost);
-            }
-            else
-            {
-                Debug.LogWarning("No test skill assigned and built-in test skills disabled!");
-            }
-        }
+            PerformTestSkill(30f);
 
-        // 2 = Heavy Skill (consumes 50% MP)
         if (Keyboard.current.digit2Key.wasPressedThisFrame)
-        {
             PerformTestSkill(50f);
-        }
 
-        // 3 = Light Skill (consumes 20% MP)
         if (Keyboard.current.digit3Key.wasPressedThisFrame)
-        {
             PerformTestSkill(20f);
-        }
 
-        // F = Flee
         if (Keyboard.current.fKey.wasPressedThisFrame)
-        {
             PerformFlee();
-        }
 
-        // D = Defend
         if (Keyboard.current.dKey.wasPressedThisFrame)
-        {
             PerformDefend();
-        }
     }
 
     void PerformBasicAttack()
     {
-        Debug.Log($"[SPACE] {playerCharacter.CharacterName} attacks! (will restore 20% MP)");
+        Debug.Log($"=== BASIC ATTACK ===");
+        Debug.Log($"MP BEFORE: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
         
         CombatAction action = CombatActionExecutor.CreateAttackAction(playerCharacter, enemyCharacter);
         actionExecutor.ExecuteAction(action);
         
-        EndCurrentTurn();
-    }
-
-    void PerformSkill()
-    {
-        Debug.Log($"[1] {playerCharacter.CharacterName} uses {testSkill.AbilityName}!");
-        
-        List<CombatCharacter> targets = new List<CombatCharacter> { enemyCharacter };
-        CombatAction action = CombatActionExecutor.CreateSkillAction(playerCharacter, testSkill, targets);
-        actionExecutor.ExecuteAction(action);
+        Debug.Log($"MP AFTER: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
         
         EndCurrentTurn();
     }
 
-    /// <summary>
-    /// Test skill that directly consumes MP without needing a ScriptableObject
-    /// </summary>
     void PerformTestSkill(float mpCostPercent)
     {
-        float mpCost = playerCharacter.MaxMP * (mpCostPercent / 100f);
+        float mpCost = playerCharacter.GetMPCost(mpCostPercent);
         
-        Debug.Log($"[SKILL] {playerCharacter.CharacterName} attempts skill costing {mpCostPercent}% MP ({mpCost:F1} MP)");
-        Debug.Log($"[SKILL] Current MP: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
+        Debug.Log($"=== SKILL {mpCostPercent}% ===");
+        Debug.Log($"MP BEFORE: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
+        Debug.Log($"Cost: {mpCost} MP");
         
-        // Check if enough MP
-        if (!playerCharacter.HasEnoughMP(mpCost))
+        if (!playerCharacter.HasEnoughMP(mpCostPercent))
         {
-            Debug.LogWarning($"[SKILL] Not enough MP! Need {mpCost:F1}, have {playerCharacter.CurrentMP:F1}");
-            
-            // Log to HUD
+            Debug.LogWarning($"NOT ENOUGH MP! Need {mpCost}, have {playerCharacter.CurrentMP}");
             if (autoCombatHUD != null)
-            {
-                autoCombatHUD.AddToLog($"Not enough MP! ({playerCharacter.CurrentMP:F0}/{mpCost:F0})");
-            }
-            return;  // Don't end turn on failed skill
+                autoCombatHUD.AddToLog($"Need {mpCost:F0} MP!");
+            return;
         }
         
-        // Consume MP
-        playerCharacter.ConsumeMP(mpCost);
+        bool consumed = playerCharacter.ConsumeMPPercent(mpCostPercent);
+        Debug.Log($"MP consumed: {consumed}");
+        Debug.Log($"MP AFTER: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
         
-        // Deal damage (simplified - just use attack stat)
-        float damage = playerCharacter.GetModifiedAttack() * 1.5f;
+        float damage = playerCharacter.Attack * 1.5f;
         enemyCharacter.TakeDamage(damage, playerCharacter.PrimaryElement);
         
-        Debug.Log($"[SKILL] {playerCharacter.CharacterName} deals {damage:F1} damage!");
-        Debug.Log($"[SKILL] MP after skill: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
-        
-        // Log to HUD
         if (autoCombatHUD != null)
-        {
-            autoCombatHUD.AddToLog($"{playerCharacter.CharacterName} uses skill! (-{mpCost:F0} MP)");
-        }
+            autoCombatHUD.AddToLog($"Skill! -{mpCost:F0} MP");
         
-        // Notify damage
         actionExecutor.OnDamageDealt?.Invoke(enemyCharacter, damage);
         
         EndCurrentTurn();
@@ -242,20 +162,29 @@ public class CombatStarter : MonoBehaviour
 
     void PerformFlee()
     {
-        Debug.Log($"[F] {playerCharacter.CharacterName} attempts to flee!");
-        
         CombatAction action = CombatActionExecutor.CreateFleeAction(playerCharacter);
         actionExecutor.ExecuteAction(action);
     }
 
     void PerformDefend()
     {
-        Debug.Log($"[D] {playerCharacter.CharacterName} defends!");
-        
         CombatAction action = CombatActionExecutor.CreateDefendAction(playerCharacter);
         actionExecutor.ExecuteAction(action);
-        
         EndCurrentTurn();
+    }
+
+    void TestDrainMP()
+    {
+        Debug.Log($"=== TEST MP DRAIN ===");
+        Debug.Log($"MP BEFORE: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
+        
+        float drainAmount = 10f;
+        playerCharacter.ConsumeMP(drainAmount);
+        
+        Debug.Log($"MP AFTER: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
+        
+        if (autoCombatHUD != null)
+            autoCombatHUD.AddToLog($"Drained {drainAmount} MP");
     }
 
     void EndCurrentTurn()
@@ -266,8 +195,6 @@ public class CombatStarter : MonoBehaviour
     void OnDestroy()
     {
         if (turnManager != null)
-        {
             turnManager.OnTurnStart -= OnCharacterTurnStart;
-        }
     }
 }
