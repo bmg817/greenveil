@@ -5,8 +5,7 @@ using Greenveil.Combat;
 
 /// <summary>
 /// Combat test script with actual combat actions
-/// Attach this to CombatManager GameObject
-/// Uses Unity's new Input System
+/// FIXED: Added skill usage that consumes MP to verify MP system works
 /// </summary>
 public class CombatStarter : MonoBehaviour
 {
@@ -16,7 +15,10 @@ public class CombatStarter : MonoBehaviour
     
     [Header("Test Abilities (Optional)")]
     [SerializeField] private Ability testSkill;
-    // [SerializeField] private Item testItem; // Uncomment when Item.cs is added
+    
+    [Header("Debug - Test MP System")]
+    [SerializeField] private bool useBuiltInTestSkills = true;
+    [SerializeField] private float testSkillMPCost = 30f;  // Percentage
     
     private TurnOrderManager turnManager;
     private CombatActionExecutor actionExecutor;
@@ -25,7 +27,6 @@ public class CombatStarter : MonoBehaviour
 
     void Start()
     {
-        // Get components
         turnManager = GetComponent<TurnOrderManager>();
         actionExecutor = GetComponent<CombatActionExecutor>();
         autoCombatHUD = GetComponent<AutoCombatHUD>();
@@ -56,8 +57,10 @@ public class CombatStarter : MonoBehaviour
         }
         
         // Collect all character visuals
-        allVisuals.Add(playerCharacter.GetComponent<CharacterVisual>());
-        allVisuals.Add(enemyCharacter.GetComponent<CharacterVisual>());
+        var playerVisual = playerCharacter.GetComponent<CharacterVisual>();
+        var enemyVisual = enemyCharacter.GetComponent<CharacterVisual>();
+        if (playerVisual != null) allVisuals.Add(playerVisual);
+        if (enemyVisual != null) allVisuals.Add(enemyVisual);
         
         // Subscribe to turn events
         turnManager.OnTurnStart += OnCharacterTurnStart;
@@ -70,12 +73,18 @@ public class CombatStarter : MonoBehaviour
         Debug.Log("Starting combat...");
         turnManager.InitializeCombat(players, enemies);
         
+        PrintControls();
+    }
+
+    void PrintControls()
+    {
         Debug.Log("=== COMBAT CONTROLS ===");
-        Debug.Log("SPACE = Basic Attack");
-        Debug.Log("1 = Use Test Skill (if assigned)");
-        Debug.Log("2 = Use Test Item (if assigned)");
+        Debug.Log("SPACE = Basic Attack (restores 20% MP)");
+        Debug.Log($"1 = Test Skill (costs {testSkillMPCost}% MP)");
+        Debug.Log("2 = Heavy Skill (costs 50% MP)");
         Debug.Log("F = Attempt Flee");
         Debug.Log("D = Defend");
+        Debug.Log("======================");
     }
 
     void OnCharacterTurnStart(CombatCharacter character)
@@ -115,29 +124,42 @@ public class CombatStarter : MonoBehaviour
     void Update()
     {
         if (!turnManager.IsCombatActive) return;
-        
-        // Only allow player input on player's turn
         if (turnManager.CurrentCharacter != playerCharacter) return;
 
-        // SPACE = Basic Attack
+        // SPACE = Basic Attack (restores MP)
         if (Keyboard.current.spaceKey.wasPressedThisFrame)
         {
             PerformBasicAttack();
         }
 
-        // 1 = Use Skill
-        if (Keyboard.current.digit1Key.wasPressedThisFrame && testSkill != null)
+        // 1 = Test Skill (consumes MP)
+        if (Keyboard.current.digit1Key.wasPressedThisFrame)
         {
-            PerformSkill();
+            if (testSkill != null)
+            {
+                PerformSkill();
+            }
+            else if (useBuiltInTestSkills)
+            {
+                PerformTestSkill(testSkillMPCost);
+            }
+            else
+            {
+                Debug.LogWarning("No test skill assigned and built-in test skills disabled!");
+            }
         }
 
-        // 2 = Use Item (uncomment when Item.cs is added)
-        /*
-        if (Keyboard.current.digit2Key.wasPressedThisFrame && testItem != null)
+        // 2 = Heavy Skill (consumes 50% MP)
+        if (Keyboard.current.digit2Key.wasPressedThisFrame)
         {
-            PerformItem();
+            PerformTestSkill(50f);
         }
-        */
+
+        // 3 = Light Skill (consumes 20% MP)
+        if (Keyboard.current.digit3Key.wasPressedThisFrame)
+        {
+            PerformTestSkill(20f);
+        }
 
         // F = Flee
         if (Keyboard.current.fKey.wasPressedThisFrame)
@@ -154,15 +176,11 @@ public class CombatStarter : MonoBehaviour
 
     void PerformBasicAttack()
     {
-        Debug.Log($"[SPACE] {playerCharacter.CharacterName} attacks!");
+        Debug.Log($"[SPACE] {playerCharacter.CharacterName} attacks! (will restore 20% MP)");
         
-        // Create attack action
         CombatAction action = CombatActionExecutor.CreateAttackAction(playerCharacter, enemyCharacter);
-        
-        // Execute action
         actionExecutor.ExecuteAction(action);
         
-        // End turn
         EndCurrentTurn();
     }
 
@@ -170,45 +188,63 @@ public class CombatStarter : MonoBehaviour
     {
         Debug.Log($"[1] {playerCharacter.CharacterName} uses {testSkill.AbilityName}!");
         
-        // Create skill action
         List<CombatCharacter> targets = new List<CombatCharacter> { enemyCharacter };
         CombatAction action = CombatActionExecutor.CreateSkillAction(playerCharacter, testSkill, targets);
-        
-        // Execute action
         actionExecutor.ExecuteAction(action);
         
-        // End turn
         EndCurrentTurn();
     }
 
-    /*
-    void PerformItem()
+    /// <summary>
+    /// Test skill that directly consumes MP without needing a ScriptableObject
+    /// </summary>
+    void PerformTestSkill(float mpCostPercent)
     {
-        Debug.Log($"[2] {playerCharacter.CharacterName} uses {testItem.ItemName}!");
+        float mpCost = playerCharacter.MaxMP * (mpCostPercent / 100f);
         
-        // Create item action (target self for healing, or enemy for damage)
-        List<CombatCharacter> targets = testItem.Type == ItemType.HealingItem 
-            ? new List<CombatCharacter> { playerCharacter }
-            : new List<CombatCharacter> { enemyCharacter };
+        Debug.Log($"[SKILL] {playerCharacter.CharacterName} attempts skill costing {mpCostPercent}% MP ({mpCost:F1} MP)");
+        Debug.Log($"[SKILL] Current MP: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
         
-        CombatAction action = CombatActionExecutor.CreateItemAction(playerCharacter, testItem, targets);
+        // Check if enough MP
+        if (!playerCharacter.HasEnoughMP(mpCost))
+        {
+            Debug.LogWarning($"[SKILL] Not enough MP! Need {mpCost:F1}, have {playerCharacter.CurrentMP:F1}");
+            
+            // Log to HUD
+            if (autoCombatHUD != null)
+            {
+                autoCombatHUD.AddToLog($"Not enough MP! ({playerCharacter.CurrentMP:F0}/{mpCost:F0})");
+            }
+            return;  // Don't end turn on failed skill
+        }
         
-        // Execute action
-        actionExecutor.ExecuteAction(action);
+        // Consume MP
+        playerCharacter.ConsumeMP(mpCost);
         
-        // End turn
+        // Deal damage (simplified - just use attack stat)
+        float damage = playerCharacter.GetModifiedAttack() * 1.5f;
+        enemyCharacter.TakeDamage(damage, playerCharacter.PrimaryElement);
+        
+        Debug.Log($"[SKILL] {playerCharacter.CharacterName} deals {damage:F1} damage!");
+        Debug.Log($"[SKILL] MP after skill: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
+        
+        // Log to HUD
+        if (autoCombatHUD != null)
+        {
+            autoCombatHUD.AddToLog($"{playerCharacter.CharacterName} uses skill! (-{mpCost:F0} MP)");
+        }
+        
+        // Notify damage
+        actionExecutor.OnDamageDealt?.Invoke(enemyCharacter, damage);
+        
         EndCurrentTurn();
     }
-    */
 
     void PerformFlee()
     {
         Debug.Log($"[F] {playerCharacter.CharacterName} attempts to flee!");
         
-        // Create flee action
         CombatAction action = CombatActionExecutor.CreateFleeAction(playerCharacter);
-        
-        // Execute action (will end turn automatically if failed)
         actionExecutor.ExecuteAction(action);
     }
 
@@ -216,13 +252,9 @@ public class CombatStarter : MonoBehaviour
     {
         Debug.Log($"[D] {playerCharacter.CharacterName} defends!");
         
-        // Create defend action
         CombatAction action = CombatActionExecutor.CreateDefendAction(playerCharacter);
-        
-        // Execute action
         actionExecutor.ExecuteAction(action);
         
-        // End turn
         EndCurrentTurn();
     }
 

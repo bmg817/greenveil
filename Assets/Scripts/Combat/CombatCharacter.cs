@@ -39,12 +39,12 @@ namespace Greenveil.Combat
         [Header("Combat Stats")]
         [SerializeField] private float maxHealth = 100f;
         [SerializeField] private float currentHealth;
-        [SerializeField] private float maxMP = 100f;
+        [SerializeField] private float maxMP = 20f;
         [SerializeField] private float currentMP;
         
         [SerializeField] private float attack = 10f;
         [SerializeField] private float defense = 5f;
-        [SerializeField] private int speed = 50; // Used for turn order
+        [SerializeField] private int speed = 50;
         
         [SerializeField] private ElementType primaryElement = ElementType.Neutral;
         
@@ -75,29 +75,30 @@ namespace Greenveil.Combat
 
         private void Awake()
         {
-            // Initialize health and MP to max
             currentHealth = maxHealth;
-            currentMP = maxMP; // ✅ FIXED: Start combat with FULL MP (decreases when using abilities)
+            currentMP = maxMP;
+        }
+
+        /// <summary>
+        /// Call this after HUD subscribes to ensure initial values are broadcast
+        /// </summary>
+        public void BroadcastInitialStats()
+        {
+            Debug.Log($"[{characterName}] Broadcasting initial stats - HP: {currentHealth}/{maxHealth}, MP: {currentMP}/{maxMP}");
+            OnHealthChanged?.Invoke(currentHealth, maxHealth);
+            OnMPChanged?.Invoke(currentMP, maxMP);
         }
 
         #region Health Management
-        /// <summary>
-        /// Apply damage to this character
-        /// </summary>
         public void TakeDamage(float damage, ElementType damageElement = ElementType.Neutral)
         {
             if (!isAlive) return;
 
-            // Apply defense reduction
             float actualDamage = Mathf.Max(1f, damage - defense);
-            
-            // TODO: Apply elemental weakness/resistance modifiers here
-            // actualDamage = ApplyElementalModifier(actualDamage, damageElement);
-            
             currentHealth = Mathf.Max(0f, currentHealth - actualDamage);
-            OnHealthChanged?.Invoke(currentHealth, maxHealth);
             
-            Debug.Log($"{characterName} took {actualDamage} damage. HP: {currentHealth}/{maxHealth}");
+            Debug.Log($"[{characterName}] TakeDamage: {actualDamage} damage. HP: {currentHealth}/{maxHealth}");
+            OnHealthChanged?.Invoke(currentHealth, maxHealth);
             
             if (currentHealth <= 0)
             {
@@ -105,32 +106,25 @@ namespace Greenveil.Combat
             }
         }
 
-        /// <summary>
-        /// Heal this character
-        /// </summary>
         public void Heal(float amount)
         {
             if (!isAlive) return;
             
+            float previousHP = currentHealth;
             currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
-            OnHealthChanged?.Invoke(currentHealth, maxHealth);
+            float actualHeal = currentHealth - previousHP;
             
-            Debug.Log($"{characterName} healed for {amount}. HP: {currentHealth}/{maxHealth}");
+            Debug.Log($"[{characterName}] Heal: +{actualHeal} HP. HP: {currentHealth}/{maxHealth}");
+            OnHealthChanged?.Invoke(currentHealth, maxHealth);
         }
 
-        /// <summary>
-        /// Handle character death
-        /// </summary>
         private void Die()
         {
             isAlive = false;
             OnCharacterDefeated?.Invoke();
-            Debug.Log($"{characterName} has been defeated!");
+            Debug.Log($"[{characterName}] has been defeated!");
         }
 
-        /// <summary>
-        /// Revive character (for abilities like Pip's "Signed, With Care")
-        /// </summary>
         public void Revive(float healthPercent = 0.5f)
         {
             if (isAlive) return;
@@ -139,80 +133,79 @@ namespace Greenveil.Combat
             currentHealth = maxHealth * healthPercent;
             OnHealthChanged?.Invoke(currentHealth, maxHealth);
             
-            Debug.Log($"{characterName} has been revived with {currentHealth} HP!");
+            Debug.Log($"[{characterName}] has been revived with {currentHealth} HP!");
         }
         #endregion
 
         #region MP Management
-        /// <summary>
-        /// Restore MP (typically from basic attacks)
-        /// </summary>
         public void RestoreMP(float amount)
         {
+            float previousMP = currentMP;
             currentMP = Mathf.Min(maxMP, currentMP + amount);
-            OnMPChanged?.Invoke(currentMP, maxMP);
+            float actualRestore = currentMP - previousMP;
             
-            Debug.Log($"{characterName} restored {amount} MP. MP: {currentMP}/{maxMP}");
+            Debug.Log($"[{characterName}] RestoreMP: +{actualRestore} MP. MP: {currentMP}/{maxMP}");
+            
+            OnMPChanged?.Invoke(currentMP, maxMP);
         }
 
-        /// <summary>
-        /// Consume MP for using skills
-        /// </summary>
         public bool ConsumeMP(float amount)
         {
             if (currentMP < amount)
             {
-                Debug.LogWarning($"{characterName} doesn't have enough MP! Need {amount}, have {currentMP}");
+                Debug.LogWarning($"[{characterName}] Not enough MP! Need {amount}, have {currentMP}");
                 return false;
             }
             
             currentMP -= amount;
+            Debug.Log($"[{characterName}] ConsumeMP: -{amount} MP. MP: {currentMP}/{maxMP}");
             OnMPChanged?.Invoke(currentMP, maxMP);
             
-            Debug.Log($"{characterName} used {amount} MP. MP: {currentMP}/{maxMP}");
             return true;
         }
 
-        /// <summary>
-        /// Check if character has enough MP for an ability
-        /// </summary>
+        public bool ConsumeMPPercent(float percent)
+        {
+            float amount = maxMP * (percent / 100f);
+            return ConsumeMP(amount);
+        }
+
         public bool HasEnoughMP(float required)
         {
             return currentMP >= required;
         }
+
+        public bool HasEnoughMPPercent(float percent)
+        {
+            float required = maxMP * (percent / 100f);
+            return currentMP >= required;
+        }
+
+        public float GetMPCost(float percent)
+        {
+            return maxMP * (percent / 100f);
+        }
         #endregion
 
         #region Status Effects
-        /// <summary>
-        /// Apply a status effect to this character
-        /// </summary>
         public void ApplyStatusEffect(StatusEffect effect)
         {
             activeStatusEffects.Add(effect);
             OnStatusEffectApplied?.Invoke(effect);
-            
-            Debug.Log($"{characterName} is affected by {effect.EffectName}");
+            Debug.Log($"[{characterName}] Status applied: {effect.EffectName}");
         }
 
-        /// <summary>
-        /// Remove a specific status effect
-        /// </summary>
         public void RemoveStatusEffect(StatusEffect effect)
         {
             activeStatusEffects.Remove(effect);
         }
 
-        /// <summary>
-        /// Clear all status effects (for abilities like Miri's Petal Draught)
-        /// </summary>
         public void ClearAllStatusEffects()
         {
             activeStatusEffects.Clear();
+            Debug.Log($"[{characterName}] All status effects cleared");
         }
 
-        /// <summary>
-        /// Process status effects at start of turn
-        /// </summary>
         public void ProcessStatusEffects()
         {
             for (int i = activeStatusEffects.Count - 1; i >= 0; i--)
@@ -220,16 +213,21 @@ namespace Greenveil.Combat
                 StatusEffect effect = activeStatusEffects[i];
                 effect.ProcessEffect(this);
                 
-                // Remove expired effects
                 if (effect.IsExpired)
                 {
                     activeStatusEffects.RemoveAt(i);
+                    Debug.Log($"[{characterName}] Status expired: {effect.EffectName}");
                 }
             }
         }
+
+        public bool HasStatusEffect(StatusEffectType type)
+        {
+            return activeStatusEffects.Exists(e => e.EffectType == type);
+        }
         #endregion
 
-        #region Stat Modifiers (for buffs/debuffs)
+        #region Stat Modifiers
         private float attackModifier = 1f;
         private float defenseModifier = 1f;
         private float speedModifier = 1f;
@@ -237,7 +235,6 @@ namespace Greenveil.Combat
         public void ModifyAttack(float multiplier, int duration)
         {
             attackModifier = multiplier;
-            // TODO: Implement duration tracking
         }
 
         public void ModifyDefense(float multiplier, int duration)
@@ -248,6 +245,13 @@ namespace Greenveil.Combat
         public void ModifySpeed(float multiplier, int duration)
         {
             speedModifier = multiplier;
+        }
+
+        public void ResetModifiers()
+        {
+            attackModifier = 1f;
+            defenseModifier = 1f;
+            speedModifier = 1f;
         }
 
         public float GetModifiedAttack() => attack * attackModifier;
@@ -265,6 +269,19 @@ namespace Greenveil.Combat
             Debug.Log($"ATK: {attack} | DEF: {defense} | SPD: {speed}");
             Debug.Log($"Element: {primaryElement}");
             Debug.Log($"Alive: {isAlive}");
+        }
+
+        [ContextMenu("Test MP Consume 25%")]
+        public void TestConsumeMPInEditor()
+        {
+            ConsumeMPPercent(25f);
+        }
+
+        [ContextMenu("Test MP Restore 20%")]
+        public void TestRestoreMPInEditor()
+        {
+            float amount = maxMP * 0.2f;
+            RestoreMP(amount);
         }
         #endregion
     }

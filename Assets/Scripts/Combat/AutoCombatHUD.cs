@@ -4,9 +4,7 @@ using TMPro;
 using Greenveil.Combat;
 using System.Collections.Generic;
 
-/// <summary>
-/// ZERO-SETUP Combat HUD - Clean, readable design
-/// Just attach this to CombatManager and it creates everything automatically!
+
 /// </summary>
 public class AutoCombatHUD : MonoBehaviour
 {
@@ -30,7 +28,6 @@ public class AutoCombatHUD : MonoBehaviour
     {
         Debug.Log("🎨 AutoCombatHUD: Start - Finding systems...");
         
-        // Find systems
         turnManager = GetComponent<TurnOrderManager>();
         actionExecutor = GetComponent<CombatActionExecutor>();
         
@@ -55,7 +52,6 @@ public class AutoCombatHUD : MonoBehaviour
 
     void CreateHUD()
     {
-        // Create Canvas
         GameObject canvasObj = new GameObject("AutoCombatHUD");
         canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -67,7 +63,7 @@ public class AutoCombatHUD : MonoBehaviour
         
         canvasObj.AddComponent<GraphicRaycaster>();
 
-        // Info Panel at bottom - Modern dark style
+        // Info Panel at bottom
         GameObject infoPanel = CreatePanel(canvasObj.transform, new Color(0.05f, 0.05f, 0.05f, 0.95f));
         RectTransform infoRect = infoPanel.GetComponent<RectTransform>();
         infoRect.anchorMin = new Vector2(0, 0);
@@ -124,12 +120,10 @@ public class AutoCombatHUD : MonoBehaviour
             return;
         }
 
-        // Create character HUD panel - Modern sleek colors!
         Vector2 position = isPlayer ? new Vector2(30, -30) : new Vector2(-30, -30);
         Vector2 anchorMin = isPlayer ? new Vector2(0, 1) : new Vector2(1, 1);
         Vector2 anchorMax = anchorMin;
         
-        // Modern color palette - darker, more saturated
         Color panelColor = isPlayer ? new Color(0.1f, 0.15f, 0.3f, 0.95f) : new Color(0.3f, 0.1f, 0.15f, 0.95f);
 
         GameObject panel = CreatePanel(canvas.transform, panelColor);
@@ -138,12 +132,14 @@ public class AutoCombatHUD : MonoBehaviour
         panelRect.anchorMax = anchorMax;
         panelRect.pivot = new Vector2(isPlayer ? 0 : 1, 1);
         panelRect.anchoredPosition = position;
-        panelRect.sizeDelta = new Vector2(340, 160); // ✅ Compact panel size
+        panelRect.sizeDelta = new Vector2(340, 160);
 
         CharacterHUD hud = new CharacterHUD();
         hud.panel = panel;
+        hud.maxHP = character.MaxHealth;
+        hud.maxMP = character.MaxMP;
 
-        // Name (bigger and bold)
+        // Name
         hud.nameText = CreateText(panel.transform, character.CharacterName, 28, Color.white);
         RectTransform nameRect = hud.nameText.GetComponent<RectTransform>();
         nameRect.anchorMin = new Vector2(0, 1);
@@ -154,11 +150,10 @@ public class AutoCombatHUD : MonoBehaviour
         hud.nameText.alignment = TextAlignmentOptions.Center;
         hud.nameText.fontStyle = FontStyles.Bold;
 
-        // ✅ HP SECTION - Cleaner layout
+        // HP Section
         float hpStartY = -55f;
         
-        // HP Label + Value on same line
-        hud.hpText = CreateText(panel.transform, "HP: 100/100", 18, Color.white);
+        hud.hpText = CreateText(panel.transform, $"HP: {character.CurrentHealth:F0}/{character.MaxHealth:F0}", 18, Color.white);
         RectTransform hpTextRect = hud.hpText.GetComponent<RectTransform>();
         hpTextRect.anchorMin = new Vector2(0, 1);
         hpTextRect.anchorMax = new Vector2(1, 1);
@@ -168,14 +163,13 @@ public class AutoCombatHUD : MonoBehaviour
         hud.hpText.alignment = TextAlignmentOptions.Center;
         hud.hpText.fontStyle = FontStyles.Bold;
 
-        // HP Bar directly below text
-        hud.hpBar = CreateBar(panel.transform, new Vector2(0, hpStartY - 22), new Color(0.95f, 0.2f, 0.2f), 300);
+        // HP Bar - Using Image.fillAmount instead of Slider
+        hud.hpBarFill = CreateFillBar(panel.transform, new Vector2(0, hpStartY - 22), new Color(0.95f, 0.2f, 0.2f), 300);
 
-        // ✅ MP SECTION - Same clean layout
-        float mpStartY = hpStartY - 50f; // 50px gap from HP bar
+        // MP Section
+        float mpStartY = hpStartY - 50f;
         
-        // MP Label + Value on same line
-        hud.mpText = CreateText(panel.transform, "MP: 100/100", 18, Color.white);
+        hud.mpText = CreateText(panel.transform, $"MP: {character.CurrentMP:F0}/{character.MaxMP:F0}", 18, Color.white);
         RectTransform mpTextRect = hud.mpText.GetComponent<RectTransform>();
         mpTextRect.anchorMin = new Vector2(0, 1);
         mpTextRect.anchorMax = new Vector2(1, 1);
@@ -185,8 +179,8 @@ public class AutoCombatHUD : MonoBehaviour
         hud.mpText.alignment = TextAlignmentOptions.Center;
         hud.mpText.fontStyle = FontStyles.Bold;
 
-        // MP Bar directly below text
-        hud.mpBar = CreateBar(panel.transform, new Vector2(0, mpStartY - 22), new Color(0.2f, 0.6f, 0.95f), 300);
+        // MP Bar - Using Image.fillAmount instead of Slider
+        hud.mpBarFill = CreateFillBar(panel.transform, new Vector2(0, mpStartY - 22), new Color(0.2f, 0.6f, 0.95f), 300);
 
         characterHUDs[character] = hud;
 
@@ -196,7 +190,7 @@ public class AutoCombatHUD : MonoBehaviour
 
         Debug.Log($"🎨 AutoCombatHUD: Subscribed to {character.CharacterName}'s health/MP events");
 
-        // Initial update
+        // Initial update with actual values
         UpdateHP(character, character.CurrentHealth, character.MaxHealth);
         UpdateMP(character, character.CurrentMP, character.MaxMP);
 
@@ -214,11 +208,13 @@ public class AutoCombatHUD : MonoBehaviour
         }
         
         CharacterHUD hud = characterHUDs[character];
-        hud.hpBar.maxValue = max;
-        hud.hpBar.value = current;
+        hud.maxHP = max;
+        
+        float fillAmount = max > 0 ? current / max : 0;
+        hud.hpBarFill.fillAmount = fillAmount;
         hud.hpText.text = $"HP: {current:F0}/{max:F0}";
         
-        Debug.Log($"🎨 AutoCombatHUD: HP bar updated to {current}/{max}");
+        Debug.Log($"🎨 AutoCombatHUD: HP bar fill = {fillAmount:F2} ({current}/{max})");
     }
 
     void UpdateMP(CombatCharacter character, float current, float max)
@@ -232,11 +228,13 @@ public class AutoCombatHUD : MonoBehaviour
         }
         
         CharacterHUD hud = characterHUDs[character];
-        hud.mpBar.maxValue = max;
-        hud.mpBar.value = current;
+        hud.maxMP = max;
+        
+        float fillAmount = max > 0 ? current / max : 0;
+        hud.mpBarFill.fillAmount = fillAmount;
         hud.mpText.text = $"MP: {current:F0}/{max:F0}";
         
-        Debug.Log($"🎨 AutoCombatHUD: MP bar updated to {current}/{max}");
+        Debug.Log($"🎨 AutoCombatHUD: MP bar fill = {fillAmount:F2} ({current}/{max})");
     }
 
     void OnCombatStart()
@@ -273,7 +271,7 @@ public class AutoCombatHUD : MonoBehaviour
         AddToLog(message);
     }
 
-    void AddToLog(string message)
+    public void AddToLog(string message)
     {
         actionLog.Enqueue(message);
         while (actionLog.Count > 5) actionLog.Dequeue();
@@ -288,7 +286,6 @@ public class AutoCombatHUD : MonoBehaviour
         Image img = panel.AddComponent<Image>();
         img.color = color;
         
-        // Add subtle outline
         Outline outline = panel.AddComponent<Outline>();
         outline.effectColor = new Color(0, 0, 0, 0.5f);
         outline.effectDistance = new Vector2(2, -2);
@@ -305,26 +302,23 @@ public class AutoCombatHUD : MonoBehaviour
         tmp.fontSize = fontSize;
         tmp.color = color;
         tmp.alignment = TextAlignmentOptions.Center;
-        
-        // Add text outline for readability
         tmp.outlineWidth = 0.2f;
         tmp.outlineColor = new Color(0, 0, 0, 0.8f);
         
         return tmp;
     }
 
-    Slider CreateBar(Transform parent, Vector2 position, Color fillColor, float width = 240)
+    Image CreateFillBar(Transform parent, Vector2 position, Color fillColor, float width = 240)
     {
         GameObject barObj = new GameObject("Bar");
         barObj.transform.SetParent(parent, false);
         RectTransform barRect = barObj.AddComponent<RectTransform>();
-        barRect.anchorMin = new Vector2(0.5f, 0.5f);
-        barRect.anchorMax = new Vector2(0.5f, 0.5f);
+        barRect.anchorMin = new Vector2(0.5f, 1f);
+        barRect.anchorMax = new Vector2(0.5f, 1f);
         barRect.pivot = new Vector2(0.5f, 0.5f);
         barRect.anchoredPosition = position;
-        barRect.sizeDelta = new Vector2(width, 20); // Sleeker bars
+        barRect.sizeDelta = new Vector2(width, 20);
 
-        // Background - Darker, sleeker
         GameObject bg = new GameObject("Background");
         bg.transform.SetParent(barObj.transform, false);
         RectTransform bgRect = bg.AddComponent<RectTransform>();
@@ -332,48 +326,40 @@ public class AutoCombatHUD : MonoBehaviour
         bgRect.anchorMax = Vector2.one;
         bgRect.sizeDelta = Vector2.zero;
         Image bgImg = bg.AddComponent<Image>();
-        bgImg.color = new Color(0.08f, 0.08f, 0.08f, 1f); // Very dark
+        bgImg.color = new Color(0.08f, 0.08f, 0.08f, 1f);
         
-        // Stronger border
         Outline bgOutline = bg.AddComponent<Outline>();
         bgOutline.effectColor = new Color(0, 0, 0, 1f);
         bgOutline.effectDistance = new Vector2(2, -2);
 
-        // Fill Area with padding
-        GameObject fillArea = new GameObject("Fill Area");
-        fillArea.transform.SetParent(barObj.transform, false);
-        RectTransform fillAreaRect = fillArea.AddComponent<RectTransform>();
-        fillAreaRect.anchorMin = Vector2.zero;
-        fillAreaRect.anchorMax = Vector2.one;
-        fillAreaRect.sizeDelta = new Vector2(-4, -4); // Padding for sleeker look
-
-        // Fill with brighter, more saturated color
         GameObject fill = new GameObject("Fill");
-        fill.transform.SetParent(fillArea.transform, false);
+        fill.transform.SetParent(barObj.transform, false);
         RectTransform fillRect = fill.AddComponent<RectTransform>();
         fillRect.anchorMin = Vector2.zero;
         fillRect.anchorMax = Vector2.one;
-        fillRect.sizeDelta = Vector2.zero;
+        fillRect.sizeDelta = new Vector2(-4, -4);
+        fillRect.anchoredPosition = Vector2.zero;
+        
         Image fillImg = fill.AddComponent<Image>();
         fillImg.color = fillColor;
+        fillImg.type = Image.Type.Filled;
+        fillImg.fillMethod = Image.FillMethod.Horizontal;
+        fillImg.fillOrigin = (int)Image.OriginHorizontal.Left;
+        fillImg.fillAmount = 1f;
 
-        Slider slider = barObj.AddComponent<Slider>();
-        slider.fillRect = fillRect;
-        slider.maxValue = 100;
-        slider.value = 100;
-        slider.transition = Selectable.Transition.None;
-
-        return slider;
+        return fillImg;
     }
 
     class CharacterHUD
     {
         public GameObject panel;
         public TextMeshProUGUI nameText;
-        public Slider hpBar;
+        public Image hpBarFill;  // Changed from Slider to Image
         public TextMeshProUGUI hpText;
-        public Slider mpBar;
+        public Image mpBarFill;  // Changed from Slider to Image
         public TextMeshProUGUI mpText;
+        public float maxHP;
+        public float maxMP;
     }
 
     void OnDestroy()
