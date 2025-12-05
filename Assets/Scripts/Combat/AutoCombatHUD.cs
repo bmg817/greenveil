@@ -8,6 +8,14 @@ using System.Collections.Generic;
 /// </summary>
 public class AutoCombatHUD : MonoBehaviour
 {
+    [Header("HP Bar Colors")]
+    [SerializeField] private Color hpColorHigh = new Color(0.2f, 0.9f, 0.2f);    // Green > 50%
+    [SerializeField] private Color hpColorMedium = new Color(0.95f, 0.8f, 0.2f); // Yellow 25-50%
+    [SerializeField] private Color hpColorLow = new Color(0.95f, 0.2f, 0.2f);    // Red < 25%
+    
+    [Header("MP Bar Color")]
+    [SerializeField] private Color mpColor = new Color(0.2f, 0.6f, 0.95f);       // Blue
+    
     private Canvas canvas;
     private Dictionary<CombatCharacter, CharacterHUD> characterHUDs = new Dictionary<CombatCharacter, CharacterHUD>();
     private TextMeshProUGUI roundText;
@@ -163,8 +171,9 @@ public class AutoCombatHUD : MonoBehaviour
         hud.hpText.alignment = TextAlignmentOptions.Center;
         hud.hpText.fontStyle = FontStyles.Bold;
 
-        // HP Bar - Using Image.fillAmount instead of Slider
-        hud.hpBarFill = CreateFillBar(panel.transform, new Vector2(0, hpStartY - 22), new Color(0.95f, 0.2f, 0.2f), 300);
+        // HP Bar
+        hud.hpBarFill = CreateFillBar(panel.transform, new Vector2(0, hpStartY - 22), hpColorHigh, 300);
+        hud.hpBarImage = hud.hpBarFill.GetComponent<Image>();
 
         // MP Section
         float mpStartY = hpStartY - 50f;
@@ -179,8 +188,9 @@ public class AutoCombatHUD : MonoBehaviour
         hud.mpText.alignment = TextAlignmentOptions.Center;
         hud.mpText.fontStyle = FontStyles.Bold;
 
-        // MP Bar - Using Image.fillAmount instead of Slider
-        hud.mpBarFill = CreateFillBar(panel.transform, new Vector2(0, mpStartY - 22), new Color(0.2f, 0.6f, 0.95f), 300);
+        // MP Bar
+        hud.mpBarFill = CreateFillBar(panel.transform, new Vector2(0, mpStartY - 22), mpColor, 300);
+        hud.mpBarImage = hud.mpBarFill.GetComponent<Image>();
 
         characterHUDs[character] = hud;
 
@@ -197,6 +207,24 @@ public class AutoCombatHUD : MonoBehaviour
         Debug.Log($"✅ Registered {character.CharacterName} in HUD (HP: {character.CurrentHealth}/{character.MaxHealth}, MP: {character.CurrentMP}/{character.MaxMP})");
     }
 
+    Color GetHPColor(float percent)
+    {
+        if (percent > 0.5f)
+        {
+            float t = (percent - 0.5f) / 0.5f;
+            return Color.Lerp(hpColorMedium, hpColorHigh, t);
+        }
+        else if (percent > 0.25f)
+        {
+            float t = (percent - 0.25f) / 0.25f;
+            return Color.Lerp(hpColorLow, hpColorMedium, t);
+        }
+        else
+        {
+            return hpColorLow;
+        }
+    }
+
     void UpdateHP(CombatCharacter character, float current, float max)
     {
         Debug.Log($"🎨 AutoCombatHUD: UpdateHP called for {character.CharacterName}: {current}/{max}");
@@ -210,11 +238,16 @@ public class AutoCombatHUD : MonoBehaviour
         CharacterHUD hud = characterHUDs[character];
         hud.maxHP = max;
         
-        float fillAmount = max > 0 ? current / max : 0;
-        hud.hpBarFill.fillAmount = fillAmount;
+        float fillPercent = max > 0 ? Mathf.Clamp01(current / max) : 0;
+        
+        Vector2 anchorMax = hud.hpBarFill.anchorMax;
+        anchorMax.x = fillPercent;
+        hud.hpBarFill.anchorMax = anchorMax;
+        
+        hud.hpBarImage.color = GetHPColor(fillPercent);
         hud.hpText.text = $"HP: {current:F0}/{max:F0}";
         
-        Debug.Log($"🎨 AutoCombatHUD: HP bar fill = {fillAmount:F2} ({current}/{max})");
+        Debug.Log($"🎨 AutoCombatHUD: HP bar anchorMax.x = {fillPercent:F2} ({current}/{max})");
     }
 
     void UpdateMP(CombatCharacter character, float current, float max)
@@ -230,11 +263,15 @@ public class AutoCombatHUD : MonoBehaviour
         CharacterHUD hud = characterHUDs[character];
         hud.maxMP = max;
         
-        float fillAmount = max > 0 ? current / max : 0;
-        hud.mpBarFill.fillAmount = fillAmount;
+        float fillPercent = max > 0 ? Mathf.Clamp01(current / max) : 0;
+        
+        Vector2 anchorMax = hud.mpBarFill.anchorMax;
+        anchorMax.x = fillPercent;
+        hud.mpBarFill.anchorMax = anchorMax;
+        
         hud.mpText.text = $"MP: {current:F0}/{max:F0}";
         
-        Debug.Log($"🎨 AutoCombatHUD: MP bar fill = {fillAmount:F2} ({current}/{max})");
+        Debug.Log($"🎨 AutoCombatHUD: MP bar anchorMax.x = {fillPercent:F2} ({current}/{max})");
     }
 
     void OnCombatStart()
@@ -308,7 +345,7 @@ public class AutoCombatHUD : MonoBehaviour
         return tmp;
     }
 
-    Image CreateFillBar(Transform parent, Vector2 position, Color fillColor, float width = 240)
+    RectTransform CreateFillBar(Transform parent, Vector2 position, Color fillColor, float width = 240)
     {
         GameObject barObj = new GameObject("Bar");
         barObj.transform.SetParent(parent, false);
@@ -324,9 +361,10 @@ public class AutoCombatHUD : MonoBehaviour
         RectTransform bgRect = bg.AddComponent<RectTransform>();
         bgRect.anchorMin = Vector2.zero;
         bgRect.anchorMax = Vector2.one;
-        bgRect.sizeDelta = Vector2.zero;
+        bgRect.offsetMin = Vector2.zero;
+        bgRect.offsetMax = Vector2.zero;
         Image bgImg = bg.AddComponent<Image>();
-        bgImg.color = new Color(0.08f, 0.08f, 0.08f, 1f);
+        bgImg.color = new Color(0.15f, 0.15f, 0.15f, 1f);
         
         Outline bgOutline = bg.AddComponent<Outline>();
         bgOutline.effectColor = new Color(0, 0, 0, 1f);
@@ -335,28 +373,27 @@ public class AutoCombatHUD : MonoBehaviour
         GameObject fill = new GameObject("Fill");
         fill.transform.SetParent(barObj.transform, false);
         RectTransform fillRect = fill.AddComponent<RectTransform>();
-        fillRect.anchorMin = Vector2.zero;
-        fillRect.anchorMax = Vector2.one;
-        fillRect.sizeDelta = new Vector2(-4, -4);
-        fillRect.anchoredPosition = Vector2.zero;
+        
+        fillRect.anchorMin = new Vector2(0, 0);
+        fillRect.anchorMax = new Vector2(1, 1);
+        fillRect.offsetMin = new Vector2(2, 2);
+        fillRect.offsetMax = new Vector2(-2, -2);
         
         Image fillImg = fill.AddComponent<Image>();
         fillImg.color = fillColor;
-        fillImg.type = Image.Type.Filled;
-        fillImg.fillMethod = Image.FillMethod.Horizontal;
-        fillImg.fillOrigin = (int)Image.OriginHorizontal.Left;
-        fillImg.fillAmount = 1f;
 
-        return fillImg;
+        return fillRect;  // Return RectTransform so we can modify anchorMax.x
     }
 
     class CharacterHUD
     {
         public GameObject panel;
         public TextMeshProUGUI nameText;
-        public Image hpBarFill;  // Changed from Slider to Image
+        public RectTransform hpBarFill; 
+        public Image hpBarImage;
         public TextMeshProUGUI hpText;
-        public Image mpBarFill;  // Changed from Slider to Image
+        public RectTransform mpBarFill;
+        public Image mpBarImage;
         public TextMeshProUGUI mpText;
         public float maxHP;
         public float maxMP;

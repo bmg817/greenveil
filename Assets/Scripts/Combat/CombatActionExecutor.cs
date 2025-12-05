@@ -3,9 +3,6 @@ using System.Collections.Generic;
 
 namespace Greenveil.Combat
 {
-    /// <summary>
-    /// Types of actions a character can take on their turn
-    /// </summary>
     public enum CombatActionType
     {
         Attack,
@@ -36,15 +33,13 @@ namespace Greenveil.Combat
         }
     }
 
-
-    /// </summary>
     public class CombatActionExecutor : MonoBehaviour
     {
         [Header("References")]
         [SerializeField] private TurnOrderManager turnManager;
         [SerializeField] private Inventory inventory;
 
-        [Header("Basic Attack Settings")]
+        [Header("Fallback Basic Attack Settings (when no Ability assigned)")]
         [SerializeField] private float basicAttackPower = 10f;
         [SerializeField] private float basicAttackMPRestorePercent = 20f;
 
@@ -56,7 +51,7 @@ namespace Greenveil.Combat
         public System.Action<CombatAction> OnActionExecuted;
         public System.Action<CombatCharacter, float> OnDamageDealt;
         public System.Action<CombatCharacter, float> OnHealingDone;
-        public System.Action<CombatCharacter, float> OnMPRestored; 
+        public System.Action<CombatCharacter, float> OnMPChanged;
 
         void Awake()
         {
@@ -96,7 +91,7 @@ namespace Greenveil.Combat
             switch (action.actionType)
             {
                 case CombatActionType.Attack:
-                    success = ExecuteBasicAttack(action);
+                    success = ExecuteAttack(action);
                     break;
                 case CombatActionType.Skill:
                     success = ExecuteSkill(action);
@@ -123,7 +118,17 @@ namespace Greenveil.Combat
             return success;
         }
 
-        private bool ExecuteBasicAttack(CombatAction action)
+        private bool ExecuteAttack(CombatAction action)
+        {
+            if (action.ability != null)
+            {
+                return ExecuteAbility(action.ability, action.user, action.targets);
+            }
+            
+            return ExecuteFallbackBasicAttack(action);
+        }
+
+        private bool ExecuteFallbackBasicAttack(CombatAction action)
         {
             if (action.targets == null || action.targets.Count == 0)
             {
@@ -150,17 +155,14 @@ namespace Greenveil.Combat
 
             // Deal damage
             target.TakeDamage(damage, action.user.PrimaryElement);
-            
-            Debug.Log($"[ATTACK] {action.user.CharacterName} attacks {target.CharacterName} for {damage:F1} damage!");
+            Debug.Log($"[ATTACK] {action.user.CharacterName} hits {target.CharacterName} for {damage:F0} damage");
             OnDamageDealt?.Invoke(target, damage);
 
-            float mpBefore = action.user.CurrentMP;
-            float mpRestoreAmount = action.user.MaxMP * (basicAttackMPRestorePercent / 100f);
-            action.user.RestoreMP(mpRestoreAmount);
-            float mpAfter = action.user.CurrentMP;
-            
-            Debug.Log($"[MP RESTORE] {action.user.CharacterName}: {mpBefore:F1} + {mpRestoreAmount:F1} = {mpAfter:F1} MP");
-            OnMPRestored?.Invoke(action.user, mpRestoreAmount);
+            // Restore MP (fallback: 20%)
+            float mpRestore = action.user.MaxMP * (basicAttackMPRestorePercent / 100f);
+            action.user.RestoreMP(mpRestore);
+            Debug.Log($"[MP RESTORE] {action.user.CharacterName} gains {mpRestore:F1} MP ({basicAttackMPRestorePercent}%)");
+            OnMPChanged?.Invoke(action.user, mpRestore);
 
             return true;
         }
@@ -169,29 +171,28 @@ namespace Greenveil.Combat
         {
             if (action.ability == null)
             {
-                Debug.LogWarning("No ability specified!");
+                Debug.LogWarning("No ability specified for Skill action!");
                 return false;
             }
 
-            if (!action.ability.CanUse(action.user))
+            return ExecuteAbility(action.ability, action.user, action.targets);
+        }
+
+        private bool ExecuteAbility(Ability ability, CombatCharacter user, List<CombatCharacter> targets)
+        {
+            if (!ability.CanUse(user))
             {
-                Debug.LogWarning($"Cannot use {action.ability.AbilityName}! (check MP)");
+                Debug.LogWarning($"Cannot use {ability.AbilityName}!");
                 return false;
             }
 
-            if (action.targets == null || action.targets.Count == 0)
+            if (targets == null || targets.Count == 0)
             {
-                Debug.LogWarning("No targets for ability!");
+                Debug.LogWarning($"No targets for {ability.AbilityName}!");
                 return false;
             }
 
-            Debug.Log($"[SKILL] {action.user.CharacterName} uses {action.ability.AbilityName}");
-            float mpBefore = action.user.CurrentMP;
-            
-            action.ability.Use(action.user, action.targets);
-            
-            float mpAfter = action.user.CurrentMP;
-            Debug.Log($"[SKILL] MP: {mpBefore:F1} -> {mpAfter:F1}");
+            ability.Use(user, targets);
             
             return true;
         }
@@ -227,8 +228,7 @@ namespace Greenveil.Combat
                 return false;
             }
 
-            bool success = inventory.UseItem(action.item, action.user, action.targets);
-            return success;
+            return inventory.UseItem(action.item, action.user, action.targets);
         }
 
         private bool ExecuteDefend(CombatAction action)
@@ -247,9 +247,7 @@ namespace Greenveil.Combat
             }
 
             Debug.Log($"{action.user.CharacterName} attempts to flee!");
-            bool success = turnManager.AttemptFlee();
-            
-            return success;
+            return turnManager.AttemptFlee();
         }
 
         private bool ExecuteTalk(CombatAction action)
@@ -284,7 +282,7 @@ namespace Greenveil.Combat
         public List<CombatCharacter> GetValidTargets(CombatActionType actionType, TargetType targetType, CombatCharacter user)
         {
             List<CombatCharacter> validTargets = new List<CombatCharacter>();
-            bool targetAllies = IsAllyTargeting(actionType, targetType);
+            bool targetAllies = IsAllyTargeting(targetType);
 
             if (targetAllies)
             {
@@ -312,7 +310,7 @@ namespace Greenveil.Combat
             return validTargets;
         }
 
-        private bool IsAllyTargeting(CombatActionType actionType, TargetType targetType)
+        private bool IsAllyTargeting(TargetType targetType)
         {
             switch (targetType)
             {
@@ -331,6 +329,14 @@ namespace Greenveil.Combat
         {
             CombatAction action = new CombatAction(CombatActionType.Attack, user);
             action.targets.Add(target);
+            return action;
+        }
+
+        public static CombatAction CreateAttackAction(CombatCharacter user, CombatCharacter target, Ability basicAttackAbility)
+        {
+            CombatAction action = new CombatAction(CombatActionType.Attack, user);
+            action.targets.Add(target);
+            action.ability = basicAttackAbility;
             return action;
         }
 

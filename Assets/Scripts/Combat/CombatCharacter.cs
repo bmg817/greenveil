@@ -3,9 +3,6 @@ using System.Collections.Generic;
 
 namespace Greenveil.Combat
 {
-    /// <summary>
-    /// Enum for elemental types in the game
-    /// </summary>
     public enum ElementType
     {
         Earth,
@@ -16,9 +13,6 @@ namespace Greenveil.Combat
         Neutral
     }
 
-    /// <summary>
-    /// Enum for character roles/archetypes
-    /// </summary>
     public enum CharacterRole
     {
         Tank,
@@ -28,7 +22,8 @@ namespace Greenveil.Combat
     }
 
     /// <summary>
-    /// Core character class for combat - used by both player characters and enemies
+    /// Core character class for combat
+    /// MP SYSTEM: Characters start at 0 MP and build it up via basic attacks
     /// </summary>
     public class CombatCharacter : MonoBehaviour
     {
@@ -39,8 +34,12 @@ namespace Greenveil.Combat
         [Header("Combat Stats")]
         [SerializeField] private float maxHealth = 100f;
         [SerializeField] private float currentHealth;
-        [SerializeField] private float maxMP = 20f;
+        [SerializeField] private float maxMP = 20f;  // GDD: Alder=20, Miri=30, Thorn=20
         [SerializeField] private float currentMP;
+        
+        [Header("MP Settings")]
+        [Tooltip("What percentage of MaxMP to start combat with (0 = empty, 100 = full)")]
+        [SerializeField] private float startingMPPercent = 0f;  // START AT 0 MP!
         
         [SerializeField] private float attack = 10f;
         [SerializeField] private float defense = 5f;
@@ -52,7 +51,7 @@ namespace Greenveil.Combat
         [SerializeField] private bool isAlive = true;
         [SerializeField] private List<StatusEffect> activeStatusEffects = new List<StatusEffect>();
         
-        // Events for UI updates
+        // Events
         public System.Action<float, float> OnHealthChanged;
         public System.Action<float, float> OnMPChanged;
         public System.Action<StatusEffect> OnStatusEffectApplied;
@@ -76,17 +75,9 @@ namespace Greenveil.Combat
         private void Awake()
         {
             currentHealth = maxHealth;
-            currentMP = maxMP;
-        }
-
-        /// <summary>
-        /// Call this after HUD subscribes to ensure initial values are broadcast
-        /// </summary>
-        public void BroadcastInitialStats()
-        {
-            Debug.Log($"[{characterName}] Broadcasting initial stats - HP: {currentHealth}/{maxHealth}, MP: {currentMP}/{maxMP}");
-            OnHealthChanged?.Invoke(currentHealth, maxHealth);
-            OnMPChanged?.Invoke(currentMP, maxMP);
+            currentMP = maxMP * (startingMPPercent / 100f);
+            
+            Debug.Log($"[{characterName}] Initialized - HP: {currentHealth}/{maxHealth}, MP: {currentMP}/{maxMP} (starting at {startingMPPercent}%)");
         }
 
         #region Health Management
@@ -97,7 +88,7 @@ namespace Greenveil.Combat
             float actualDamage = Mathf.Max(1f, damage - defense);
             currentHealth = Mathf.Max(0f, currentHealth - actualDamage);
             
-            Debug.Log($"[{characterName}] TakeDamage: {actualDamage} damage. HP: {currentHealth}/{maxHealth}");
+            Debug.Log($"[{characterName}] TakeDamage: {actualDamage:F0} damage. HP: {currentHealth:F0}/{maxHealth:F0}");
             OnHealthChanged?.Invoke(currentHealth, maxHealth);
             
             if (currentHealth <= 0)
@@ -114,7 +105,7 @@ namespace Greenveil.Combat
             currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
             float actualHeal = currentHealth - previousHP;
             
-            Debug.Log($"[{characterName}] Heal: +{actualHeal} HP. HP: {currentHealth}/{maxHealth}");
+            Debug.Log($"[{characterName}] Heal: +{actualHeal:F0} HP. HP: {currentHealth:F0}/{maxHealth:F0}");
             OnHealthChanged?.Invoke(currentHealth, maxHealth);
         }
 
@@ -133,7 +124,7 @@ namespace Greenveil.Combat
             currentHealth = maxHealth * healthPercent;
             OnHealthChanged?.Invoke(currentHealth, maxHealth);
             
-            Debug.Log($"[{characterName}] has been revived with {currentHealth} HP!");
+            Debug.Log($"[{characterName}] has been revived with {currentHealth:F0} HP!");
         }
         #endregion
 
@@ -144,8 +135,7 @@ namespace Greenveil.Combat
             currentMP = Mathf.Min(maxMP, currentMP + amount);
             float actualRestore = currentMP - previousMP;
             
-            Debug.Log($"[{characterName}] RestoreMP: +{actualRestore} MP. MP: {currentMP}/{maxMP}");
-            
+            Debug.Log($"[{characterName}] RestoreMP: +{actualRestore:F1} MP. MP: {currentMP:F1}/{maxMP:F1}");
             OnMPChanged?.Invoke(currentMP, maxMP);
         }
 
@@ -153,12 +143,12 @@ namespace Greenveil.Combat
         {
             if (currentMP < amount)
             {
-                Debug.LogWarning($"[{characterName}] Not enough MP! Need {amount}, have {currentMP}");
+                Debug.LogWarning($"[{characterName}] Not enough MP! Need {amount:F1}, have {currentMP:F1}");
                 return false;
             }
             
             currentMP -= amount;
-            Debug.Log($"[{characterName}] ConsumeMP: -{amount} MP. MP: {currentMP}/{maxMP}");
+            Debug.Log($"[{characterName}] ConsumeMP: -{amount:F1} MP. MP: {currentMP:F1}/{maxMP:F1}");
             OnMPChanged?.Invoke(currentMP, maxMP);
             
             return true;
@@ -263,25 +253,9 @@ namespace Greenveil.Combat
         public void PrintStats()
         {
             Debug.Log($"=== {characterName} Stats ===");
-            Debug.Log($"Role: {role}");
             Debug.Log($"HP: {currentHealth}/{maxHealth}");
             Debug.Log($"MP: {currentMP}/{maxMP}");
             Debug.Log($"ATK: {attack} | DEF: {defense} | SPD: {speed}");
-            Debug.Log($"Element: {primaryElement}");
-            Debug.Log($"Alive: {isAlive}");
-        }
-
-        [ContextMenu("Test MP Consume 25%")]
-        public void TestConsumeMPInEditor()
-        {
-            ConsumeMPPercent(25f);
-        }
-
-        [ContextMenu("Test MP Restore 20%")]
-        public void TestRestoreMPInEditor()
-        {
-            float amount = maxMP * 0.2f;
-            RestoreMP(amount);
         }
         #endregion
     }
