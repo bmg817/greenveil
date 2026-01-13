@@ -1,1 +1,41 @@
-VisualElement {}
+.character {
+    flex-direction: row;
+    flex-shrink: 0;
+    flex-grow: 0;
+    align-items: flex-end;
+    justify-content: flex-end;
+    background-color: rgb(100, 35, 3);
+}
+
+.character-bars {
+    flex-grow: 0;
+    flex-shrink: 1;
+    height: 35px;
+}
+
+.character-bars__health {
+    background-color: red;
+    border-color: rgb(100, 35, 3);
+    border-width: 2px;
+    width: 150px;
+    height: 20px;
+}
+
+.character-bars__mana {
+    background-color: blue;
+    border-color: rgb(100, 35, 3);
+    border-width: 2px;
+    width: 145px;
+    height: 5px;
+}
+
+.character-bars__statusEffects {
+    background-color: orange;
+    border-color: rgb(100, 35, 3);
+    border-width: 2px;
+    width: 100px;
+    height: 30px;
+}
+
+.character-label {
+}
