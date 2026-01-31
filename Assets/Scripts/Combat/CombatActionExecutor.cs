@@ -13,9 +13,6 @@ namespace Greenveil.Combat
         Talk
     }
 
-    /// <summary>
-    /// Represents a single combat action
-    /// </summary>
     public class CombatAction
     {
         public CombatActionType actionType;
@@ -29,25 +26,17 @@ namespace Greenveil.Combat
         {
             this.actionType = type;
             this.user = user;
-            this.targets = new List<CombatCharacter>();
+            targets = new List<CombatCharacter>();
         }
     }
 
     public class CombatActionExecutor : MonoBehaviour
     {
-        [Header("References")]
         [SerializeField] private TurnOrderManager turnManager;
         [SerializeField] private Inventory inventory;
-
-        [Header("Fallback Basic Attack Settings (when no Ability assigned)")]
         [SerializeField] private float basicAttackPower = 10f;
         [SerializeField] private float basicAttackMPRestorePercent = 20f;
 
-        [Header("Defend Settings")]
-        [SerializeField] private float defendMultiplier = 0.5f;
-        private Dictionary<CombatCharacter, bool> defendingCharacters = new Dictionary<CombatCharacter, bool>();
-
-        // Events
         public System.Action<CombatAction> OnActionExecuted;
         public System.Action<CombatCharacter, float> OnDamageDealt;
         public System.Action<CombatCharacter, float> OnHealingDone;
@@ -64,12 +53,9 @@ namespace Greenveil.Combat
         void Start()
         {
             if (turnManager != null)
-            {
-                turnManager.OnTurnEnd += OnTurnEnd;
-            }
+                turnManager.OnTurnStart += OnTurnStart;
         }
 
-        #region Execute Actions
         public bool ExecuteAction(CombatAction action)
         {
             if (action == null || action.user == null)
@@ -82,6 +68,18 @@ namespace Greenveil.Combat
             {
                 Debug.LogWarning($"{action.user.CharacterName} is defeated and cannot act!");
                 return false;
+            }
+
+            bool isOffensiveAction = action.actionType == CombatActionType.Attack || action.actionType == CombatActionType.Skill;
+            if (isOffensiveAction && action.user.HasStatusEffectType(StatusEffectType.Confused) && Random.value < 0.5f)
+            {
+                Debug.Log($"{action.user.CharacterName} is confused!");
+                var allLiving = new List<CombatCharacter>();
+                allLiving.AddRange(turnManager.GetLivingCharacters(true));
+                allLiving.AddRange(turnManager.GetLivingCharacters(false));
+                allLiving.Remove(action.user);
+                if (allLiving.Count > 0)
+                    action.targets = new List<CombatCharacter> { allLiving[Random.Range(0, allLiving.Count)] };
             }
 
             Debug.Log($">>> {action.user.CharacterName} performs {action.actionType} <<<");
@@ -111,9 +109,7 @@ namespace Greenveil.Combat
             }
 
             if (success)
-            {
                 OnActionExecuted?.Invoke(action);
-            }
 
             return success;
         }
@@ -121,10 +117,7 @@ namespace Greenveil.Combat
         private bool ExecuteAttack(CombatAction action)
         {
             if (action.ability != null)
-            {
                 return ExecuteAbility(action.ability, action.user, action.targets);
-            }
-            
             return ExecuteFallbackBasicAttack(action);
         }
 
@@ -144,24 +137,13 @@ namespace Greenveil.Combat
                 return false;
             }
 
-            // Calculate damage
             float damage = basicAttackPower + action.user.GetModifiedAttack();
-            
-            if (IsDefending(target))
-            {
-                damage *= defendMultiplier;
-                Debug.Log($"{target.CharacterName} is defending! Damage reduced.");
-            }
-
-            // Deal damage
-            target.TakeDamage(damage, action.user.PrimaryElement);
+            target.TakeDamage(damage, action.user.PrimaryElement, false, action.user);
             Debug.Log($"[ATTACK] {action.user.CharacterName} hits {target.CharacterName} for {damage:F0} damage");
             OnDamageDealt?.Invoke(target, damage);
 
-            // Restore MP (fallback: 20%)
             float mpRestore = action.user.MaxMP * (basicAttackMPRestorePercent / 100f);
             action.user.RestoreMP(mpRestore);
-            Debug.Log($"[MP RESTORE] {action.user.CharacterName} gains {mpRestore:F1} MP ({basicAttackMPRestorePercent}%)");
             OnMPChanged?.Invoke(action.user, mpRestore);
 
             return true;
@@ -174,7 +156,6 @@ namespace Greenveil.Combat
                 Debug.LogWarning("No ability specified for Skill action!");
                 return false;
             }
-
             return ExecuteAbility(action.ability, action.user, action.targets);
         }
 
@@ -193,7 +174,6 @@ namespace Greenveil.Combat
             }
 
             ability.Use(user, targets);
-            
             return true;
         }
 
@@ -206,9 +186,7 @@ namespace Greenveil.Combat
             }
 
             if (inventory == null)
-            {
                 inventory = FindFirstObjectByType<Inventory>();
-            }
 
             if (inventory == null)
             {
@@ -233,7 +211,7 @@ namespace Greenveil.Combat
 
         private bool ExecuteDefend(CombatAction action)
         {
-            defendingCharacters[action.user] = true;
+            action.user.SetDefending(true);
             Debug.Log($"{action.user.CharacterName} takes a defensive stance!");
             return true;
         }
@@ -261,48 +239,38 @@ namespace Greenveil.Combat
             Debug.Log($"=== {action.user.CharacterName} initiates dialogue: {action.dialogueId} ===");
             return true;
         }
-        #endregion
 
-        #region Defend System
-        public bool IsDefending(CombatCharacter character)
+        private void OnTurnStart(CombatCharacter character)
         {
-            return defendingCharacters.ContainsKey(character) && defendingCharacters[character];
+            character.SetDefending(false);
         }
 
-        private void OnTurnEnd(CombatCharacter character)
-        {
-            if (defendingCharacters.ContainsKey(character))
-            {
-                defendingCharacters[character] = false;
-            }
-        }
-        #endregion
-
-        #region Target Selection Helpers
         public List<CombatCharacter> GetValidTargets(CombatActionType actionType, TargetType targetType, CombatCharacter user)
         {
-            List<CombatCharacter> validTargets = new List<CombatCharacter>();
-            bool targetAllies = IsAllyTargeting(targetType);
+            bool userIsPlayer = turnManager.IsPlayerCharacter(user);
+            bool targetAllies = targetType == TargetType.SingleAlly ||
+                                targetType == TargetType.AllAllies ||
+                                targetType == TargetType.Self;
 
-            if (targetAllies)
+            bool getPlayerTeam = targetAllies ? userIsPlayer : !userIsPlayer;
+            List<CombatCharacter> validTargets = turnManager.GetLivingCharacters(getPlayerTeam);
+
+            if (!targetAllies)
             {
-                validTargets = turnManager.GetLivingCharacters(true);
-            }
-            else
-            {
-                validTargets = turnManager.GetLivingCharacters(false);
+                var taunter = validTargets.Find(t => t.HasStatusEffectType(StatusEffectType.Taunting));
+                if (taunter != null)
+                    validTargets = new List<CombatCharacter> { taunter };
             }
 
             switch (targetType)
             {
                 case TargetType.Self:
-                    validTargets = new List<CombatCharacter> { user };
-                    break;
+                    return new List<CombatCharacter> { user };
                 case TargetType.Random:
                     if (validTargets.Count > 0)
                     {
                         int randomIndex = Random.Range(0, validTargets.Count);
-                        validTargets = new List<CombatCharacter> { validTargets[randomIndex] };
+                        return new List<CombatCharacter> { validTargets[randomIndex] };
                     }
                     break;
             }
@@ -310,31 +278,16 @@ namespace Greenveil.Combat
             return validTargets;
         }
 
-        private bool IsAllyTargeting(TargetType targetType)
-        {
-            switch (targetType)
-            {
-                case TargetType.SingleAlly:
-                case TargetType.AllAllies:
-                case TargetType.Self:
-                    return true;
-                default:
-                    return false;
-            }
-        }
-        #endregion
-
-        #region Static Action Creators
         public static CombatAction CreateAttackAction(CombatCharacter user, CombatCharacter target)
         {
-            CombatAction action = new CombatAction(CombatActionType.Attack, user);
+            var action = new CombatAction(CombatActionType.Attack, user);
             action.targets.Add(target);
             return action;
         }
 
         public static CombatAction CreateAttackAction(CombatCharacter user, CombatCharacter target, Ability basicAttackAbility)
         {
-            CombatAction action = new CombatAction(CombatActionType.Attack, user);
+            var action = new CombatAction(CombatActionType.Attack, user);
             action.targets.Add(target);
             action.ability = basicAttackAbility;
             return action;
@@ -342,7 +295,7 @@ namespace Greenveil.Combat
 
         public static CombatAction CreateSkillAction(CombatCharacter user, Ability ability, List<CombatCharacter> targets)
         {
-            CombatAction action = new CombatAction(CombatActionType.Skill, user);
+            var action = new CombatAction(CombatActionType.Skill, user);
             action.ability = ability;
             action.targets = targets;
             return action;
@@ -350,7 +303,7 @@ namespace Greenveil.Combat
 
         public static CombatAction CreateItemAction(CombatCharacter user, Item item, List<CombatCharacter> targets)
         {
-            CombatAction action = new CombatAction(CombatActionType.Item, user);
+            var action = new CombatAction(CombatActionType.Item, user);
             action.item = item;
             action.targets = targets;
             return action;
@@ -363,7 +316,7 @@ namespace Greenveil.Combat
 
         public static CombatAction CreateTalkAction(CombatCharacter user, string dialogueId)
         {
-            CombatAction action = new CombatAction(CombatActionType.Talk, user);
+            var action = new CombatAction(CombatActionType.Talk, user);
             action.dialogueId = dialogueId;
             return action;
         }
@@ -372,14 +325,11 @@ namespace Greenveil.Combat
         {
             return new CombatAction(CombatActionType.Defend, user);
         }
-        #endregion
 
         void OnDestroy()
         {
             if (turnManager != null)
-            {
-                turnManager.OnTurnEnd -= OnTurnEnd;
-            }
+                turnManager.OnTurnStart -= OnTurnStart;
         }
     }
 }

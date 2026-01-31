@@ -4,153 +4,143 @@ using System.Linq;
 
 namespace Greenveil.Combat
 {
-    /// <summary>
-    /// Manages turn order based on character speed stats
-    /// </summary>
     public class TurnOrderManager : MonoBehaviour
     {
-        [Header("Combat Participants")]
-        [SerializeField] private List<CombatCharacter> playerCharacters = new List<CombatCharacter>();
-        [SerializeField] private List<CombatCharacter> enemyCharacters = new List<CombatCharacter>();
-        
-        private List<CombatCharacter> turnOrder = new List<CombatCharacter>();
-        private int currentTurnIndex = 0;
-        
-        [Header("Turn State")]
-        [SerializeField] private bool combatActive = false;
-        [SerializeField] private int roundNumber = 1;
-        
-        // Events
+        private List<CombatCharacter> playerCharacters = new List<CombatCharacter>();
+        private List<CombatCharacter> enemyCharacters = new List<CombatCharacter>();
+
+        private const float TICK_THRESHOLD = 100f;
+        private const float SPEED_BASE = 10f;
+        private Dictionary<CombatCharacter, float> tickCounters = new Dictionary<CombatCharacter, float>();
+        private HashSet<CombatCharacter> actedThisRound = new HashSet<CombatCharacter>();
+        private CombatCharacter currentCharacter;
+
+        private bool combatActive = false;
+        private int roundNumber = 1;
+
         public System.Action<CombatCharacter> OnTurnStart;
         public System.Action<CombatCharacter> OnTurnEnd;
         public System.Action<int> OnNewRound;
         public System.Action OnCombatStart;
-        public System.Action<bool> OnCombatEnd; // bool = player victory
-        public System.Action<bool> OnFleeAttempt; // bool = flee success
+        public System.Action<bool> OnCombatEnd;
+        public System.Action<bool> OnFleeAttempt;
 
-        #region Properties
-        public CombatCharacter CurrentCharacter => turnOrder.Count > 0 ? turnOrder[currentTurnIndex] : null;
+        public CombatCharacter CurrentCharacter => currentCharacter;
         public bool IsCombatActive => combatActive;
         public int RoundNumber => roundNumber;
-        public List<CombatCharacter> TurnOrder => turnOrder;
-        #endregion
+        public List<CombatCharacter> TurnOrder => GetUpcomingTurns(20);
 
-        #region Combat Initialization
-        /// <summary>
-        /// Start combat with given characters
-        /// </summary>
         public void InitializeCombat(List<CombatCharacter> players, List<CombatCharacter> enemies)
         {
             playerCharacters = new List<CombatCharacter>(players);
             enemyCharacters = new List<CombatCharacter>(enemies);
-            
-            // Calculate initial turn order
-            CalculateTurnOrder();
-            
+
+            tickCounters.Clear();
+            actedThisRound.Clear();
+
+            foreach (var c in playerCharacters.Concat(enemyCharacters))
+            {
+                if (c.IsAlive)
+                    tickCounters[c] = TICK_THRESHOLD / (SPEED_BASE + Mathf.Max(1, c.GetModifiedSpeed()));
+            }
+
             combatActive = true;
             roundNumber = 1;
-            currentTurnIndex = 0;
-            
+
             OnCombatStart?.Invoke();
-            
+
             Debug.Log("=== Combat Started ===");
             PrintTurnOrder();
-            
-            // Start first turn
+
+            AdvanceToNextCharacter();
+        }
+
+        private void AdvanceToNextCharacter()
+        {
+            if (!combatActive) return;
+
+            var dead = tickCounters.Keys.Where(c => !c.IsAlive).ToList();
+            foreach (var d in dead)
+            {
+                tickCounters.Remove(d);
+                actedThisRound.Remove(d);
+            }
+
+            if (tickCounters.Count == 0) return;
+
+            CombatCharacter next = null;
+            float lowestTick = float.MaxValue;
+            foreach (var kvp in tickCounters)
+            {
+                if (kvp.Value < lowestTick || (kvp.Value == lowestTick && Random.value > 0.5f))
+                {
+                    lowestTick = kvp.Value;
+                    next = kvp.Key;
+                }
+            }
+
+            if (lowestTick > 0)
+            {
+                var keys = tickCounters.Keys.ToList();
+                foreach (var key in keys)
+                    tickCounters[key] -= lowestTick;
+            }
+
+            currentCharacter = next;
             StartTurn();
         }
 
-        /// <summary>
-        /// Calculate turn order based on speed (highest speed goes first)
-        /// </summary>
-        private void CalculateTurnOrder()
-        {
-            turnOrder.Clear();
-            
-            // Combine all characters
-            List<CombatCharacter> allCharacters = new List<CombatCharacter>();
-            allCharacters.AddRange(playerCharacters);
-            allCharacters.AddRange(enemyCharacters);
-            
-            // Filter out defeated characters
-            allCharacters = allCharacters.Where(c => c.IsAlive).ToList();
-            
-            // Sort by speed (descending)
-            turnOrder = allCharacters.OrderByDescending(c => c.GetModifiedSpeed()).ToList();
-            
-            // Add some randomness for characters with same speed
-            for (int i = 0; i < turnOrder.Count - 1; i++)
-            {
-                if (turnOrder[i].GetModifiedSpeed() == turnOrder[i + 1].GetModifiedSpeed())
-                {
-                    if (Random.value > 0.5f)
-                    {
-                        var temp = turnOrder[i];
-                        turnOrder[i] = turnOrder[i + 1];
-                        turnOrder[i + 1] = temp;
-                    }
-                }
-            }
-        }
-        #endregion
-
-        #region Turn Management
-        /// <summary>
-        /// Start the current character's turn
-        /// </summary>
         private void StartTurn()
         {
             if (!combatActive) return;
-            if (turnOrder.Count == 0) return;
-            
-            CombatCharacter currentChar = CurrentCharacter;
-            
-            // Skip turn if character is defeated
-            if (!currentChar.IsAlive)
+            if (currentCharacter == null) return;
+
+            if (!currentCharacter.IsAlive)
             {
-                NextTurn();
+                tickCounters[currentCharacter] = TICK_THRESHOLD / (SPEED_BASE + Mathf.Max(1, currentCharacter.GetModifiedSpeed()));
+                AdvanceToNextCharacter();
                 return;
             }
-            
-            // Process status effects
-            currentChar.ProcessStatusEffects();
-            
-            // Check if status effects prevent action
+
+            currentCharacter.ProcessStatusEffects();
+
             bool canAct = true;
-            foreach (var effect in currentChar.ActiveStatusEffects)
+            foreach (var effect in currentCharacter.ActiveStatusEffects)
             {
                 if (effect.PreventsAction())
                 {
                     canAct = false;
-                    Debug.Log($"{currentChar.CharacterName}'s turn is skipped due to {effect.EffectName}!");
+                    Debug.Log($"{currentCharacter.CharacterName}'s turn is skipped due to {effect.EffectName}!");
                     break;
                 }
             }
-            
-            OnTurnStart?.Invoke(currentChar);
-            
+
+            OnTurnStart?.Invoke(currentCharacter);
+
             if (!canAct)
             {
-                // Auto-end turn if character can't act
                 Invoke(nameof(EndTurnDelayed), 1f);
             }
             else
             {
-                Debug.Log($">>> {currentChar.CharacterName}'s Turn (Speed: {currentChar.GetModifiedSpeed()}) <<<");
+                Debug.Log($">>> {currentCharacter.CharacterName}'s Turn (Speed: {currentCharacter.GetModifiedSpeed()}) <<<");
             }
         }
 
-        /// <summary>
-        /// End the current turn and move to next
-        /// </summary>
         public void EndTurn()
         {
             if (!combatActive) return;
-            
-            CombatCharacter currentChar = CurrentCharacter;
-            OnTurnEnd?.Invoke(currentChar);
-            
-            NextTurn();
+
+            OnTurnEnd?.Invoke(currentCharacter);
+
+            actedThisRound.Add(currentCharacter);
+            tickCounters[currentCharacter] = TICK_THRESHOLD / (SPEED_BASE + Mathf.Max(1, currentCharacter.GetModifiedSpeed()));
+
+            CheckVirtualRound();
+
+            if (CheckCombatEnd()) return;
+
+            AdvanceToNextCharacter();
         }
 
         private void EndTurnDelayed()
@@ -158,60 +148,26 @@ namespace Greenveil.Combat
             EndTurn();
         }
 
-        /// <summary>
-        /// Advance to next turn
-        /// </summary>
-        private void NextTurn()
+        private void CheckVirtualRound()
         {
-            currentTurnIndex++;
-            
-            // Check if round is complete
-            if (currentTurnIndex >= turnOrder.Count)
+            var allLiving = playerCharacters.Concat(enemyCharacters).Where(c => c.IsAlive).ToList();
+            bool allActed = allLiving.All(c => actedThisRound.Contains(c));
+
+            if (allActed)
             {
-                EndRound();
-                return;
+                Debug.Log($"=== Round {roundNumber} Complete ===");
+                roundNumber++;
+                actedThisRound.Clear();
+                OnNewRound?.Invoke(roundNumber);
+                Debug.Log($"=== Round {roundNumber} Start ===");
             }
-            
-            // Check win/loss conditions
-            if (CheckCombatEnd())
-            {
-                return;
-            }
-            
-            StartTurn();
         }
 
-        /// <summary>
-        /// End current round and start new one
-        /// </summary>
-        private void EndRound()
-        {
-            Debug.Log($"=== Round {roundNumber} Complete ===");
-            
-            roundNumber++;
-            currentTurnIndex = 0;
-            
-            // Recalculate turn order for new round
-            CalculateTurnOrder();
-            
-            OnNewRound?.Invoke(roundNumber);
-            
-            Debug.Log($"=== Round {roundNumber} Start ===");
-            PrintTurnOrder();
-            
-            StartTurn();
-        }
-        #endregion
-
-        #region Combat End Conditions
-        /// <summary>
-        /// Check if combat should end
-        /// </summary>
         private bool CheckCombatEnd()
         {
             bool allEnemiesDefeated = enemyCharacters.All(e => !e.IsAlive);
             bool allPlayersDefeated = playerCharacters.All(p => !p.IsAlive);
-            
+
             if (allEnemiesDefeated)
             {
                 EndCombat(true);
@@ -222,34 +178,21 @@ namespace Greenveil.Combat
                 EndCombat(false);
                 return true;
             }
-            
+
             return false;
         }
 
-        /// <summary>
-        /// End combat
-        /// </summary>
         private void EndCombat(bool playerVictory)
         {
             combatActive = false;
             OnCombatEnd?.Invoke(playerVictory);
-            
-            if (playerVictory)
-            {
-                Debug.Log("=== VICTORY ===");
-            }
-            else
-            {
-                Debug.Log("=== DEFEAT ===");
-            }
-        }
-        #endregion
 
-        #region Flee System
-        /// <summary>
-        /// Attempt to flee from combat
-        /// Success is based on party speed vs enemy speed
-        /// </summary>
+            if (playerVictory)
+                Debug.Log("=== VICTORY ===");
+            else
+                Debug.Log("=== DEFEAT ===");
+        }
+
         public bool AttemptFlee()
         {
             if (!combatActive)
@@ -258,41 +201,27 @@ namespace Greenveil.Combat
                 return false;
             }
 
-            // Calculate average speeds
             float playerAvgSpeed = CalculateAverageSpeed(playerCharacters);
             float enemyAvgSpeed = CalculateAverageSpeed(enemyCharacters);
 
-            // Base flee chance: 50%
             float fleeChance = 0.5f;
-
-            // Adjust based on speed difference
             float speedDifference = playerAvgSpeed - enemyAvgSpeed;
-            fleeChance += speedDifference * 0.01f; // +/- 1% per speed point difference
-
-            // Clamp between 10% and 90%
+            fleeChance += speedDifference * 0.01f;
             fleeChance = Mathf.Clamp(fleeChance, 0.1f, 0.9f);
 
-            // Roll for success
             bool success = Random.value < fleeChance;
 
             Debug.Log($"Flee attempt! Chance: {fleeChance * 100}% - {(success ? "SUCCESS" : "FAILED")}");
             OnFleeAttempt?.Invoke(success);
 
             if (success)
-            {
                 FleeSuccess();
-            }
             else
-            {
                 FleeFailed();
-            }
 
             return success;
         }
 
-        /// <summary>
-        /// Guaranteed flee (from escape items or special abilities)
-        /// </summary>
         public void GuaranteedFlee()
         {
             Debug.Log("Guaranteed flee!");
@@ -304,13 +233,12 @@ namespace Greenveil.Combat
         {
             combatActive = false;
             Debug.Log("=== ESCAPED FROM BATTLE ===");
-            OnCombatEnd?.Invoke(false); // Not a victory, but not a defeat either
+            OnCombatEnd?.Invoke(false);
         }
 
         private void FleeFailed()
         {
             Debug.Log("Failed to escape! Turn continues...");
-            // Failed flee attempts end the turn
             EndTurn();
         }
 
@@ -332,69 +260,100 @@ namespace Greenveil.Combat
 
             return aliveCount > 0 ? totalSpeed / aliveCount : 0f;
         }
-        #endregion
 
-        #region Utility
-        /// <summary>
-        /// Force recalculation of turn order (for speed buffs/debuffs)
-        /// </summary>
+        public bool IsPlayerCharacter(CombatCharacter character)
+        {
+            return playerCharacters.Contains(character);
+        }
+
         public void RecalculateTurnOrder()
         {
-            // Store current character
-            CombatCharacter current = CurrentCharacter;
-            
-            CalculateTurnOrder();
-            
-            // Try to maintain current character's position
-            currentTurnIndex = turnOrder.IndexOf(current);
-            if (currentTurnIndex < 0) currentTurnIndex = 0;
-            
+            var dead = tickCounters.Keys.Where(c => !c.IsAlive).ToList();
+            foreach (var d in dead)
+            {
+                tickCounters.Remove(d);
+                actedThisRound.Remove(d);
+            }
+
+            foreach (var c in playerCharacters.Concat(enemyCharacters))
+            {
+                if (c.IsAlive && !tickCounters.ContainsKey(c))
+                    tickCounters[c] = TICK_THRESHOLD / (SPEED_BASE + Mathf.Max(1, c.GetModifiedSpeed()));
+            }
+
             Debug.Log("Turn order recalculated!");
             PrintTurnOrder();
         }
 
-        /// <summary>
-        /// Skip a specific character's next turn
-        /// </summary>
         public void SkipCharacterTurn(CombatCharacter character)
         {
-            // Remove from turn order temporarily
-            int index = turnOrder.IndexOf(character);
-            if (index >= 0)
+            if (tickCounters.ContainsKey(character))
             {
-                turnOrder.RemoveAt(index);
-                
-                // Adjust current index if needed
-                if (index < currentTurnIndex)
-                {
-                    currentTurnIndex--;
-                }
-                
+                tickCounters[character] = TICK_THRESHOLD / (SPEED_BASE + Mathf.Max(1, character.GetModifiedSpeed()));
                 Debug.Log($"{character.CharacterName}'s turn has been skipped!");
             }
         }
 
-        /// <summary>
-        /// Get all living characters on a team
-        /// </summary>
         public List<CombatCharacter> GetLivingCharacters(bool playerTeam)
         {
             List<CombatCharacter> team = playerTeam ? playerCharacters : enemyCharacters;
             return team.Where(c => c.IsAlive).ToList();
         }
 
-        /// <summary>
-        /// Debug print current turn order
-        /// </summary>
+        public List<CombatCharacter> GetUpcomingTurns(int count)
+        {
+            var result = new List<CombatCharacter>();
+
+            if (currentCharacter != null && currentCharacter.IsAlive)
+                result.Add(currentCharacter);
+
+            var simTicks = new Dictionary<CombatCharacter, float>();
+            foreach (var kvp in tickCounters)
+            {
+                if (kvp.Key.IsAlive)
+                {
+                    if (kvp.Key == currentCharacter)
+                        simTicks[kvp.Key] = TICK_THRESHOLD / (SPEED_BASE + Mathf.Max(1, kvp.Key.GetModifiedSpeed()));
+                    else
+                        simTicks[kvp.Key] = kvp.Value;
+                }
+            }
+
+            while (result.Count < count && simTicks.Count > 0)
+            {
+                CombatCharacter next = null;
+                float lowest = float.MaxValue;
+                foreach (var kvp in simTicks)
+                {
+                    if (kvp.Value < lowest)
+                    {
+                        lowest = kvp.Value;
+                        next = kvp.Key;
+                    }
+                }
+
+                if (next == null) break;
+
+                var keys = simTicks.Keys.ToList();
+                foreach (var key in keys)
+                    simTicks[key] -= lowest;
+
+                result.Add(next);
+                simTicks[next] = TICK_THRESHOLD / (SPEED_BASE + Mathf.Max(1, next.GetModifiedSpeed()));
+            }
+
+            return result;
+        }
+
         private void PrintTurnOrder()
         {
-            Debug.Log("Turn Order:");
-            for (int i = 0; i < turnOrder.Count; i++)
+            var upcoming = GetUpcomingTurns(10);
+            Debug.Log("Turn Order (CTB):");
+            for (int i = 0; i < upcoming.Count; i++)
             {
-                string marker = (i == currentTurnIndex) ? ">>>" : "   ";
-                Debug.Log($"{marker} {i + 1}. {turnOrder[i].CharacterName} (Speed: {turnOrder[i].GetModifiedSpeed()})");
+                string marker = (i == 0) ? ">>>" : "   ";
+                Debug.Log($"{marker} {i + 1}. {upcoming[i].CharacterName} (Speed: {upcoming[i].GetModifiedSpeed()})");
             }
         }
-        #endregion
     }
 }

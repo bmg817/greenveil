@@ -2,109 +2,76 @@ using UnityEngine;
 
 namespace Greenveil.Combat
 {
-    /// <summary>
-    /// Types of status effects that can be applied
-    /// </summary>
     public enum StatusEffectType
     {
-        // Negative Effects
-        Paralyzed,
         Poisoned,
+        Burning,
         Sleeping,
+        Paralyzed,
+        Frozen,
         Confused,
         Rooted,
-        Disoriented,
-        Melancholy, // From Memory Storm boss
-        
-        // Positive Effects
+        Weakened,
+        Sneeze,
+        AccuracyDown,
+        Taunting,
+        DamageAbsorb,
         AttackBuff,
         DefenseBuff,
         SpeedBuff,
         Shielded,
         Evading,
-        
-        // Special
-        Burning,
-        Frozen,
-        Weakened
+        Marked,
+        HitShield,
+        FlowerTrap,
+        DamageReflect
     }
 
-    /// <summary>
-    /// Base class for status effects
-    /// </summary>
     [System.Serializable]
     public class StatusEffect
     {
         [SerializeField] private string effectName;
         [SerializeField] private StatusEffectType effectType;
-        [SerializeField] private int duration; // In turns
-        [SerializeField] private float magnitude; // Strength of the effect
-        
+        [SerializeField] private int duration;
+        [SerializeField] private float magnitude;
+
         private int currentDuration;
 
         public string EffectName => effectName;
         public StatusEffectType EffectType => effectType;
         public int Duration => duration;
+        public float Magnitude => magnitude;
         public bool IsExpired => currentDuration <= 0;
 
         public StatusEffect(StatusEffectType type, int duration, float magnitude = 1f)
         {
-            this.effectType = type;
-            this.effectName = type.ToString();
+            effectType = type;
+            effectName = type.ToString();
             this.duration = duration;
-            this.currentDuration = duration;
+            currentDuration = duration;
             this.magnitude = magnitude;
         }
 
-        /// <summary>
-        /// Process this effect at the start of a character's turn
-        /// </summary>
-        public virtual void ProcessEffect(CombatCharacter target)
+        public void ProcessEffect(CombatCharacter target)
         {
             switch (effectType)
             {
                 case StatusEffectType.Poisoned:
-                    // Deal damage over time
                     float poisonDamage = target.MaxHealth * 0.05f * magnitude;
-                    target.TakeDamage(poisonDamage);
-                    Debug.Log($"{target.CharacterName} took {poisonDamage} poison damage!");
+                    target.TakeDamage(poisonDamage, ElementType.Neutral, true);
+                    Debug.Log($"{target.CharacterName} took {poisonDamage:F0} poison damage!");
                     break;
-                    
-                case StatusEffectType.Paralyzed:
-                    // Chance to skip turn handled in TurnOrderManager
-                    Debug.Log($"{target.CharacterName} is paralyzed!");
-                    break;
-                    
-                case StatusEffectType.Sleeping:
-                    // Skip turn
-                    Debug.Log($"{target.CharacterName} is sleeping...");
-                    break;
-                    
-                case StatusEffectType.Confused:
-                    // Random action or attack allies
-                    Debug.Log($"{target.CharacterName} is confused!");
-                    break;
-                    
+
                 case StatusEffectType.Burning:
-                    // Fire damage over time
                     float burnDamage = 5f * magnitude;
-                    target.TakeDamage(burnDamage, ElementType.Fire);
-                    Debug.Log($"{target.CharacterName} took {burnDamage} burn damage!");
-                    break;
-                    
-                case StatusEffectType.Melancholy:
-                    // Backlash damage when dealing damage (handled in combat manager)
-                    Debug.Log($"{target.CharacterName} feels melancholy...");
+                    target.TakeDamage(burnDamage, ElementType.Fire, true);
+                    Debug.Log($"{target.CharacterName} took {burnDamage:F0} burn damage!");
                     break;
             }
-            
-            // Decrease duration
+
             currentDuration--;
         }
 
-        /// <summary>
-        /// Check if this effect prevents action
-        /// </summary>
         public bool PreventsAction()
         {
             switch (effectType)
@@ -113,16 +80,19 @@ namespace Greenveil.Combat
                 case StatusEffectType.Frozen:
                     return true;
                 case StatusEffectType.Paralyzed:
-                    // 50% chance to prevent action
                     return Random.value < 0.5f;
+                case StatusEffectType.Sneeze:
+                    return Random.value < 0.3f;
                 default:
                     return false;
             }
         }
 
-        /// <summary>
-        /// Get stat modifier from this effect
-        /// </summary>
+        public void DecrementMagnitude()
+        {
+            magnitude -= 1f;
+        }
+
         public float GetStatModifier(string statName)
         {
             switch (effectType)
@@ -135,6 +105,8 @@ namespace Greenveil.Combat
                     return statName == "speed" ? magnitude : 1f;
                 case StatusEffectType.Weakened:
                     return statName == "attack" ? 0.5f : 1f;
+                case StatusEffectType.Rooted:
+                    return statName == "speed" ? 0f : 1f;
                 default:
                     return 1f;
             }

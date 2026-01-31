@@ -1,190 +1,263 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections.Generic;
+using System.Linq;
 using Greenveil.Combat;
 
 public class CombatStarter : MonoBehaviour
 {
-    [Header("Combat Participants")]
-    [SerializeField] private CombatCharacter playerCharacter;
-    [SerializeField] private CombatCharacter enemyCharacter;
-    
-    [Header("Test Abilities")]
-    [SerializeField] private Ability testSkill;
-    
+    [SerializeField] private List<CombatCharacter> playerCharacters = new List<CombatCharacter>();
+    [SerializeField] private List<CombatCharacter> enemyCharacters = new List<CombatCharacter>();
+
     private TurnOrderManager turnManager;
     private CombatActionExecutor actionExecutor;
     private AutoCombatHUD autoCombatHUD;
     private List<CharacterVisual> allVisuals = new List<CharacterVisual>();
+
+    private static readonly Key[] skillKeys = {
+        Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4,
+        Key.Digit5, Key.Digit6, Key.Digit7, Key.Digit8, Key.Digit9
+    };
 
     void Start()
     {
         turnManager = GetComponent<TurnOrderManager>();
         actionExecutor = GetComponent<CombatActionExecutor>();
         autoCombatHUD = GetComponent<AutoCombatHUD>();
-        
+
         if (turnManager == null || actionExecutor == null)
         {
             Debug.LogError("Missing TurnOrderManager or CombatActionExecutor!");
             return;
         }
-        
-        if (playerCharacter == null || enemyCharacter == null)
+
+        if (playerCharacters.Count == 0 || enemyCharacters.Count == 0)
         {
             Debug.LogError("Assign Player and Enemy characters!");
             return;
         }
-        
+
         if (autoCombatHUD != null)
         {
-            autoCombatHUD.RegisterCharacter(playerCharacter, true);
-            autoCombatHUD.RegisterCharacter(enemyCharacter, false);
+            foreach (var player in playerCharacters)
+                autoCombatHUD.RegisterCharacter(player, true);
+            foreach (var enemy in enemyCharacters)
+                autoCombatHUD.RegisterCharacter(enemy, false);
         }
-        
-        var playerVisual = playerCharacter.GetComponent<CharacterVisual>();
-        var enemyVisual = enemyCharacter.GetComponent<CharacterVisual>();
-        if (playerVisual != null) allVisuals.Add(playerVisual);
-        if (enemyVisual != null) allVisuals.Add(enemyVisual);
-        
+
+        foreach (var character in playerCharacters.Concat(enemyCharacters))
+        {
+            var visual = character.GetComponent<CharacterVisual>();
+            if (visual != null) allVisuals.Add(visual);
+        }
+
+        foreach (var enemy in enemyCharacters)
+            enemy.OnFlowerTrapTriggered += OnFlowerTrapTriggered;
+        foreach (var player in playerCharacters)
+            player.OnFlowerTrapTriggered += OnFlowerTrapTriggered;
+
         turnManager.OnTurnStart += OnCharacterTurnStart;
-        
-        List<CombatCharacter> players = new List<CombatCharacter> { playerCharacter };
-        List<CombatCharacter> enemies = new List<CombatCharacter> { enemyCharacter };
-        
-        Debug.Log("Starting combat...");
-        Debug.Log($"Player MP: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
-        turnManager.InitializeCombat(players, enemies);
-        
-        PrintControls();
+        turnManager.InitializeCombat(playerCharacters, enemyCharacters);
     }
 
-    void PrintControls()
+    void OnFlowerTrapTriggered(CombatCharacter triggered, float spreadDamage)
     {
-        Debug.Log("=== CONTROLS ===");
-        Debug.Log("SPACE = Attack (+20% MP)");
-        Debug.Log("1 = Skill 30% | 2 = Skill 50% | 3 = Skill 20%");
-        Debug.Log("T = TEST: Drain 10 MP");
-        Debug.Log("================");
+        bool isEnemy = enemyCharacters.Contains(triggered);
+        var teammates = isEnemy
+            ? enemyCharacters.Where(c => c.IsAlive && c != triggered).ToList()
+            : playerCharacters.Where(c => c.IsAlive && c != triggered).ToList();
+
+        foreach (var teammate in teammates)
+        {
+            if (!teammate.HasStatusEffectType(StatusEffectType.FlowerTrap))
+            {
+                teammate.ApplyStatusEffect(new StatusEffect(StatusEffectType.FlowerTrap, 1, spreadDamage));
+                Debug.Log($"[FLOWER TRAP] Spread to {teammate.CharacterName}!");
+            }
+        }
     }
 
     void OnCharacterTurnStart(CombatCharacter character)
     {
         foreach (var visual in allVisuals)
             if (visual != null) visual.SetActive(false);
-        
-        CharacterVisual currentVisual = character.GetComponent<CharacterVisual>();
+
+        var currentVisual = character.GetComponent<CharacterVisual>();
         if (currentVisual != null) currentVisual.SetActive(true);
 
-        if (character == enemyCharacter)
-            Invoke(nameof(EnemyAutoAttack), 1f);
+        if (autoCombatHUD != null)
+        {
+            if (playerCharacters.Contains(character))
+                autoCombatHUD.ShowSkillsBar(character);
+            else
+                autoCombatHUD.HideSkillsBar();
+        }
+
+        if (enemyCharacters.Contains(character))
+            Invoke(nameof(EnemyTakeTurnDelayed), 1f);
     }
 
-    void EnemyAutoAttack()
+    void EnemyTakeTurnDelayed()
     {
-        CombatAction action = CombatActionExecutor.CreateAttackAction(enemyCharacter, playerCharacter);
-        actionExecutor.ExecuteAction(action);
+        EnemyTakeTurn(turnManager.CurrentCharacter);
+    }
+
+    void EnemyTakeTurn(CombatCharacter enemy)
+    {
+        Ability chosenAbility = enemy.BasicAttack;
+
+        if (enemy.Skills != null && enemy.Skills.Length > 0)
+        {
+            var usable = enemy.Skills.Where(s => s.CanUse(enemy)).ToList();
+
+            float hpPercent = enemy.CurrentHealth / enemy.MaxHealth;
+            if (hpPercent <= 0.75f && !enemy.HasStatusEffectType(StatusEffectType.DamageReflect))
+            {
+                var reflex = usable.FirstOrDefault(s => s.id == "ancient_reflex");
+                if (reflex != null)
+                    chosenAbility = reflex;
+                else if (usable.Count > 0)
+                    chosenAbility = usable[Random.Range(0, usable.Count)];
+            }
+            else if (usable.Count > 0)
+            {
+                var filtered = usable.Where(s => s.id != "ancient_reflex").ToList();
+                if (filtered.Count > 0)
+                    chosenAbility = filtered[Random.Range(0, filtered.Count)];
+                else
+                    chosenAbility = usable[Random.Range(0, usable.Count)];
+            }
+        }
+
+        if (chosenAbility == null)
+        {
+            var target = GetRandomLiving(playerCharacters);
+            if (target != null)
+            {
+                var action = CombatActionExecutor.CreateAttackAction(enemy, target);
+                actionExecutor.ExecuteAction(action);
+            }
+        }
+        else
+        {
+            var targets = actionExecutor.GetValidTargets(CombatActionType.Skill, chosenAbility.Target, enemy);
+
+            if (chosenAbility.Target == TargetType.SingleEnemy || chosenAbility.Target == TargetType.SingleAlly)
+            {
+                if (targets.Count > 0)
+                    targets = new List<CombatCharacter> { targets[Random.Range(0, targets.Count)] };
+            }
+
+            if (chosenAbility.Type == AbilityType.BasicAttack)
+            {
+                if (targets.Count > 0)
+                {
+                    var action = CombatActionExecutor.CreateAttackAction(enemy, targets[0], chosenAbility);
+                    actionExecutor.ExecuteAction(action);
+                }
+            }
+            else
+            {
+                var action = CombatActionExecutor.CreateSkillAction(enemy, chosenAbility, targets);
+                actionExecutor.ExecuteAction(action);
+            }
+        }
+
         Invoke(nameof(EndCurrentTurn), 0.5f);
     }
 
     void Update()
     {
-        if (Keyboard.current.tKey.wasPressedThisFrame)
-        {
-            TestDrainMP();
-            return;
-        }
-
         if (!turnManager.IsCombatActive) return;
-        if (turnManager.CurrentCharacter != playerCharacter) return;
+        if (!playerCharacters.Contains(turnManager.CurrentCharacter)) return;
+
+        var current = turnManager.CurrentCharacter;
 
         if (Keyboard.current.spaceKey.wasPressedThisFrame)
-            PerformBasicAttack();
+            PerformBasicAttack(current);
 
-        if (Keyboard.current.digit1Key.wasPressedThisFrame)
-            PerformTestSkill(30f);
-
-        if (Keyboard.current.digit2Key.wasPressedThisFrame)
-            PerformTestSkill(50f);
-
-        if (Keyboard.current.digit3Key.wasPressedThisFrame)
-            PerformTestSkill(20f);
-
-        if (Keyboard.current.fKey.wasPressedThisFrame)
-            PerformFlee();
+        int skillCount = 0;
+        if (current.Skills != null)
+        {
+            skillCount = current.Skills.Length;
+            for (int i = 0; i < current.Skills.Length && i < skillKeys.Length; i++)
+            {
+                if (Keyboard.current[skillKeys[i]].wasPressedThisFrame)
+                    PerformSkill(current, current.Skills[i], i + 1);
+            }
+        }
 
         if (Keyboard.current.dKey.wasPressedThisFrame)
-            PerformDefend();
+            PerformDefend(current, skillCount + 1);
+
+        if (Keyboard.current.fKey.wasPressedThisFrame)
+            PerformFlee(current, skillCount + 2);
     }
 
-    void PerformBasicAttack()
+    void PerformBasicAttack(CombatCharacter player)
     {
-        Debug.Log($"=== BASIC ATTACK ===");
-        Debug.Log($"MP BEFORE: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
-        
-        CombatAction action = CombatActionExecutor.CreateAttackAction(playerCharacter, enemyCharacter);
-        actionExecutor.ExecuteAction(action);
-        
-        Debug.Log($"MP AFTER: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
-        
+        if (autoCombatHUD != null) autoCombatHUD.HighlightAction(0);
+
+        var target = GetRandomLiving(enemyCharacters);
+        if (target == null) return;
+
+        if (player.BasicAttack != null)
+        {
+            var action = CombatActionExecutor.CreateAttackAction(player, target, player.BasicAttack);
+            actionExecutor.ExecuteAction(action);
+        }
+        else
+        {
+            var action = CombatActionExecutor.CreateAttackAction(player, target);
+            actionExecutor.ExecuteAction(action);
+        }
+
         EndCurrentTurn();
     }
 
-    void PerformTestSkill(float mpCostPercent)
+    void PerformSkill(CombatCharacter player, Ability skill, int highlightIndex)
     {
-        float mpCost = playerCharacter.GetMPCost(mpCostPercent);
-        
-        Debug.Log($"=== SKILL {mpCostPercent}% ===");
-        Debug.Log($"MP BEFORE: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
-        Debug.Log($"Cost: {mpCost} MP");
-        
-        if (!playerCharacter.HasEnoughMP(mpCostPercent))
+        if (!skill.CanUse(player))
         {
-            Debug.LogWarning($"NOT ENOUGH MP! Need {mpCost}, have {playerCharacter.CurrentMP}");
-            if (autoCombatHUD != null)
-                autoCombatHUD.AddToLog($"Need {mpCost:F0} MP!");
+            Debug.Log($"Cannot use {skill.AbilityName}!");
             return;
         }
-        
-        bool consumed = playerCharacter.ConsumeMPPercent(mpCostPercent);
-        Debug.Log($"MP consumed: {consumed}");
-        Debug.Log($"MP AFTER: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
-        
-        float damage = playerCharacter.Attack * 1.5f;
-        enemyCharacter.TakeDamage(damage, playerCharacter.PrimaryElement);
-        
-        if (autoCombatHUD != null)
-            autoCombatHUD.AddToLog($"Skill! -{mpCost:F0} MP");
-        
-        actionExecutor.OnDamageDealt?.Invoke(enemyCharacter, damage);
-        
-        EndCurrentTurn();
-    }
 
-    void PerformFlee()
-    {
-        CombatAction action = CombatActionExecutor.CreateFleeAction(playerCharacter);
-        actionExecutor.ExecuteAction(action);
-    }
+        if (autoCombatHUD != null) autoCombatHUD.HighlightAction(highlightIndex);
 
-    void PerformDefend()
-    {
-        CombatAction action = CombatActionExecutor.CreateDefendAction(playerCharacter);
+        var targets = actionExecutor.GetValidTargets(CombatActionType.Skill, skill.Target, player);
+
+        if (skill.Target == TargetType.SingleEnemy || skill.Target == TargetType.SingleAlly)
+        {
+            if (targets.Count > 0)
+                targets = new List<CombatCharacter> { targets[0] };
+        }
+
+        var action = CombatActionExecutor.CreateSkillAction(player, skill, targets);
         actionExecutor.ExecuteAction(action);
         EndCurrentTurn();
     }
 
-    void TestDrainMP()
+    void PerformFlee(CombatCharacter player, int highlightIndex)
     {
-        Debug.Log($"=== TEST MP DRAIN ===");
-        Debug.Log($"MP BEFORE: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
-        
-        float drainAmount = 10f;
-        playerCharacter.ConsumeMP(drainAmount);
-        
-        Debug.Log($"MP AFTER: {playerCharacter.CurrentMP}/{playerCharacter.MaxMP}");
-        
-        if (autoCombatHUD != null)
-            autoCombatHUD.AddToLog($"Drained {drainAmount} MP");
+        if (autoCombatHUD != null) autoCombatHUD.HighlightAction(highlightIndex);
+        var action = CombatActionExecutor.CreateFleeAction(player);
+        actionExecutor.ExecuteAction(action);
+    }
+
+    void PerformDefend(CombatCharacter player, int highlightIndex)
+    {
+        if (autoCombatHUD != null) autoCombatHUD.HighlightAction(highlightIndex);
+        var action = CombatActionExecutor.CreateDefendAction(player);
+        actionExecutor.ExecuteAction(action);
+        EndCurrentTurn();
+    }
+
+    CombatCharacter GetRandomLiving(List<CombatCharacter> characters)
+    {
+        var living = characters.Where(c => c.IsAlive).ToList();
+        if (living.Count == 0) return null;
+        return living[Random.Range(0, living.Count)];
     }
 
     void EndCurrentTurn()
@@ -196,5 +269,10 @@ public class CombatStarter : MonoBehaviour
     {
         if (turnManager != null)
             turnManager.OnTurnStart -= OnCharacterTurnStart;
+
+        foreach (var enemy in enemyCharacters)
+            if (enemy != null) enemy.OnFlowerTrapTriggered -= OnFlowerTrapTriggered;
+        foreach (var player in playerCharacters)
+            if (player != null) player.OnFlowerTrapTriggered -= OnFlowerTrapTriggered;
     }
 }

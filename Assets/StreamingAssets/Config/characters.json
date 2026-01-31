@@ -1,0 +1,56 @@
+{
+  "characters": [
+    {
+      "id": "alder",
+      "name": "Alder Finch",
+      "role": "Damage",
+      "element": "Fire",
+      "maxHealth": 100,
+      "maxMP": 20,
+      "attack": 25,
+      "defense": 10,
+      "speed": 10,
+      "basicAttackId": "fire_strike",
+      "skillIds": ["bramble_bind", "echo_verse", "hunters_mark", "hail_of_arrows"]
+    },
+    {
+      "id": "miri",
+      "name": "Miri Quickroot",
+      "role": "Support",
+      "element": "Nature",
+      "maxHealth": 80,
+      "maxMP": 30,
+      "attack": 22,
+      "defense": 8,
+      "speed": 15,
+      "basicAttackId": "wind_gust",
+      "skillIds": ["hayfever_haze", "herbal_remedy", "bloom_burst"]
+    },
+    {
+      "id": "thorn",
+      "name": "Thorn of Liria",
+      "role": "Tank",
+      "element": "Earth",
+      "maxHealth": 150,
+      "maxMP": 20,
+      "attack": 20,
+      "defense": 15,
+      "speed": 7,
+      "basicAttackId": "stone_bash",
+      "skillIds": ["verdant_aegis", "runebark_resonance", "heartwood_pulse"]
+    },
+    {
+      "id": "elder_thornweald",
+      "name": "Elder Thornweald",
+      "role": "Damage",
+      "element": "Nature",
+      "maxHealth": 400,
+      "maxMP": 100,
+      "attack": 18,
+      "defense": 30,
+      "speed": 6,
+      "basicAttackId": "root_swipe",
+      "skillIds": ["root_swipe", "spore_burst", "ancient_reflex"]
+    }
+  ]
+}
