@@ -3,57 +3,38 @@ using System.Collections.Generic;
 
 namespace Greenveil.Combat
 {
-    /// <summary>
-    /// Types of items that can be used in combat
-    /// </summary>
     public enum ItemType
     {
-        HealingItem,      // Restores HP
-        MPRestoreItem,    // Restores MP
-        ReviveItem,       // Revives defeated ally
-        BuffItem,         // Applies positive status effect
-        CureItem,         // Removes negative status effects
-        DamageItem,       // Damages enemies (throwable)
-        EscapeItem        // Guarantees escape from battle
+        HealingItem,
+        MPRestoreItem,
+        ReviveItem,
+        BuffItem,
+        CureItem,
+        DamageItem,
+        EscapeItem
     }
 
-    /// <summary>
-    /// Consumable items that can be used in combat
-    /// </summary>
     [CreateAssetMenu(fileName = "New Item", menuName = "Greenveil/Item")]
     public class Item : ScriptableObject
     {
-        [Header("Item Info")]
         [SerializeField] private string itemName;
         [TextArea(2, 4)]
         [SerializeField] private string description;
         [SerializeField] private ItemType itemType;
         [SerializeField] private Sprite icon;
-        
-        [Header("Target")]
         [SerializeField] private TargetType targetType;
-        
-        [Header("Effect Values")]
-        [SerializeField] private float power; // Healing amount, buff strength, etc.
-        [SerializeField] private int duration; // For buffs
+        [SerializeField] private float power;
+        [SerializeField] private int duration;
         [SerializeField] private StatusEffectType statusEffect;
-        
-        [Header("Quantity")]
         [SerializeField] private bool isConsumable = true;
-        // maxStack is handled by Inventory class
 
-        #region Properties
         public string ItemName => itemName;
         public string Description => description;
         public ItemType Type => itemType;
         public Sprite Icon => icon;
         public TargetType Target => targetType;
         public bool IsConsumable => isConsumable;
-        #endregion
 
-        /// <summary>
-        /// Use this item on target(s)
-        /// </summary>
         public virtual bool UseItem(CombatCharacter user, List<CombatCharacter> targets)
         {
             if (targets == null || targets.Count == 0)
@@ -123,7 +104,7 @@ namespace Greenveil.Combat
             {
                 if (!target.IsAlive)
                 {
-                    target.Revive(power / 100f); // power is percentage
+                    target.Revive(power / 100f);
                     Debug.Log($"{target.CharacterName} has been revived!");
                     success = true;
                 }
@@ -180,7 +161,6 @@ namespace Greenveil.Combat
         private bool UseEscapeItem()
         {
             Debug.Log("Escape item used! Guaranteed escape!");
-            // This will be handled by TurnOrderManager
             return true;
         }
     }

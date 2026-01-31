@@ -8,33 +8,37 @@ namespace Greenveil.Combat
 
     public class CombatCharacter : MonoBehaviour
     {
-        [Header("Configuration")]
-        [SerializeField] private CharacterConfig config;
-        
-        [Header("Identity")]
-        [SerializeField] private string characterName = "Character";
-        [SerializeField] private CharacterRole role = CharacterRole.Damage;
+        [SerializeField] private string characterId;
+        [SerializeField] private float defendMultiplier = 0.5f;
 
-        [Header("Stats")]
-        [SerializeField] private float maxHealth = 100f;
-        [SerializeField] private float maxMP = 20f;
-        [SerializeField] private float attack = 10f;
-        [SerializeField] private float defense = 5f;
-        [SerializeField] private int speed = 50;
-        [SerializeField] private ElementType primaryElement = ElementType.Neutral;
+        private string characterName = "Character";
+        private CharacterRole role = CharacterRole.Damage;
+        private float maxHealth = 100f;
+        private float maxMP = 20f;
+        private float attack = 10f;
+        private float defense = 5f;
+        private int speed = 50;
+        private ElementType primaryElement = ElementType.Neutral;
 
-        [Header("Runtime")]
-        [SerializeField] private float currentHealth;
-        [SerializeField] private float currentMP;
-        [SerializeField] private bool isAlive = true;
-        [SerializeField] private List<StatusEffect> activeStatusEffects = new List<StatusEffect>();
+        private float currentHealth;
+        private float currentMP;
+        private bool isAlive = true;
+        private bool isDefending;
+        private List<StatusEffect> activeStatusEffects = new List<StatusEffect>();
+
+        private Ability basicAttack;
+        private Ability[] skills;
 
         public System.Action<float, float> OnHealthChanged;
         public System.Action<float, float> OnMPChanged;
         public System.Action<StatusEffect> OnStatusEffectApplied;
         public System.Action OnCharacterDefeated;
+        public System.Action<CombatCharacter, float> OnFlowerTrapTriggered;
+        public System.Action<float> OnDamageTaken;
+        public System.Action<float> OnHealReceived;
 
         public string CharacterName => characterName;
+        public string CharacterId => characterId;
         public CharacterRole Role => role;
         public float CurrentHealth => currentHealth;
         public float MaxHealth => maxHealth;
@@ -45,42 +49,124 @@ namespace Greenveil.Combat
         public int Speed => speed;
         public ElementType PrimaryElement => primaryElement;
         public bool IsAlive => isAlive;
+        public bool IsDefending => isDefending;
         public List<StatusEffect> ActiveStatusEffects => activeStatusEffects;
-        public CharacterConfig Config => config;
+        public Ability BasicAttack => basicAttack;
+        public Ability[] Skills => skills;
 
         private void Awake()
         {
-            if (config != null)
-                ApplyConfig(config);
-            
+            if (!string.IsNullOrEmpty(characterId))
+                LoadFromConfig(characterId);
+
             currentHealth = maxHealth;
             currentMP = maxMP;
             Debug.Log($"[{characterName}] Initialized - HP: {currentHealth}/{maxHealth}, MP: {currentMP}/{maxMP}");
         }
 
-        public void ApplyConfig(CharacterConfig cfg)
+        public void LoadFromConfig(string id)
         {
-            config = cfg;
-            characterName = cfg.characterName;
-            role = cfg.role;
-            maxHealth = cfg.maxHealth;
-            maxMP = cfg.maxMP;
-            attack = cfg.attack;
-            defense = cfg.defense;
-            speed = cfg.speed;
-            primaryElement = cfg.primaryElement;
+            var config = CombatConfig.GetCharacter(id);
+            if (config == null)
+            {
+                Debug.LogWarning($"Character config not found: {id}");
+                return;
+            }
+
+            characterId = id;
+            characterName = config.characterName;
+            role = config.role;
+            maxHealth = config.maxHealth;
+            maxMP = config.maxMP;
+            attack = config.attack;
+            defense = config.defense;
+            speed = config.speed;
+            primaryElement = config.primaryElement;
+
+            if (!string.IsNullOrEmpty(config.basicAttackId))
+                basicAttack = CombatConfig.GetAbility(config.basicAttackId);
+
+            skills = CombatConfig.GetAbilitiesForCharacter(id);
         }
 
-        public void TakeDamage(float damage, ElementType damageElement = ElementType.Neutral)
+        public void TakeDamage(float damage, ElementType damageElement = ElementType.Neutral, bool direct = false, CombatCharacter attacker = null)
         {
-            float finalDamage = Mathf.Max(0, damage - defense);
+            float finalDamage = damage;
+
+            if (!direct)
+            {
+                var hitShield = GetStatusEffect(StatusEffectType.HitShield);
+                if (hitShield != null)
+                {
+                    hitShield.DecrementMagnitude();
+                    Debug.Log($"[{characterName}] HitShield blocked the attack! ({hitShield.Magnitude:F0} hits remaining)");
+                    if (hitShield.Magnitude <= 0)
+                        RemoveStatusEffect(hitShield);
+                    return;
+                }
+
+                if (isDefending)
+                    finalDamage *= defendMultiplier;
+
+                var marked = GetStatusEffect(StatusEffectType.Marked);
+                if (marked != null)
+                {
+                    finalDamage *= 1.5f;
+                    Debug.Log($"[{characterName}] Marked! Taking 1.5x damage!");
+                }
+
+                var shielded = GetStatusEffect(StatusEffectType.Shielded);
+                if (shielded != null)
+                {
+                    float absorbed = Mathf.Min(finalDamage, shielded.Magnitude);
+                    finalDamage -= absorbed;
+                    Debug.Log($"[{characterName}] Shield absorbed {absorbed:F0} damage!");
+                }
+
+                var evading = GetStatusEffect(StatusEffectType.Evading);
+                if (evading != null && Random.value < evading.Magnitude)
+                {
+                    Debug.Log($"[{characterName}] Evaded the attack!");
+                    return;
+                }
+
+                var damageAbsorb = GetStatusEffect(StatusEffectType.DamageAbsorb);
+                if (damageAbsorb != null)
+                {
+                    finalDamage *= 0.5f;
+                    Debug.Log($"[{characterName}] DamageAbsorb halved incoming damage!");
+                }
+
+                finalDamage = Mathf.Max(1f, finalDamage - GetModifiedDefense());
+            }
+
             currentHealth = Mathf.Max(0, currentHealth - finalDamage);
-            Debug.Log($"[{characterName}] TakeDamage: {finalDamage} damage. HP: {currentHealth}/{maxHealth}");
+            Debug.Log($"[{characterName}] TakeDamage: {finalDamage:F0} damage. HP: {currentHealth}/{maxHealth}");
             OnHealthChanged?.Invoke(currentHealth, maxHealth);
+            OnDamageTaken?.Invoke(finalDamage);
 
             if (currentHealth <= 0 && isAlive)
-            {
                 Die();
+
+            if (!direct && isAlive)
+            {
+                var reflect = GetStatusEffect(StatusEffectType.DamageReflect);
+                if (reflect != null && attacker != null)
+                {
+                    float reflectDamage = finalDamage * reflect.Magnitude;
+                    Debug.Log($"[{characterName}] DamageReflect! {reflectDamage:F0} reflected to {attacker.CharacterName}!");
+                    attacker.TakeDamage(reflectDamage, damageElement, true);
+                }
+
+                var trap = GetStatusEffect(StatusEffectType.FlowerTrap);
+                if (trap != null)
+                {
+                    float trapDamage = trap.Magnitude;
+                    Debug.Log($"[{characterName}] FlowerTrap triggered! {trapDamage:F0} bonus Nature damage!");
+                    TakeDamage(trapDamage, ElementType.Nature, true);
+                    RemoveStatusEffect(trap);
+                    OnFlowerTrapTriggered?.Invoke(this, trapDamage * 0.5f);
+                }
             }
         }
 
@@ -91,6 +177,7 @@ namespace Greenveil.Combat
             float actualHeal = currentHealth - previousHealth;
             Debug.Log($"[{characterName}] Healed: +{actualHeal}. HP: {currentHealth}/{maxHealth}");
             OnHealthChanged?.Invoke(currentHealth, maxHealth);
+            if (actualHeal > 0) OnHealReceived?.Invoke(actualHeal);
         }
 
         private void Die()
@@ -131,24 +218,9 @@ namespace Greenveil.Combat
             return true;
         }
 
-        public float GetMPCost(float percent)
+        public void SetDefending(bool defending)
         {
-            return maxMP * (percent / 100f);
-        }
-
-        public bool HasEnoughMP(float percent)
-        {
-            return currentMP >= GetMPCost(percent);
-        }
-
-        public bool ConsumeMPPercent(float percent)
-        {
-            return ConsumeMP(GetMPCost(percent));
-        }
-
-        public void RestoreMPPercent(float percent)
-        {
-            RestoreMP(GetMPCost(percent));
+            isDefending = defending;
         }
 
         public float GetModifiedAttack()
@@ -185,9 +257,7 @@ namespace Greenveil.Combat
         public void RemoveStatusEffect(StatusEffect effect)
         {
             if (activeStatusEffects.Remove(effect))
-            {
                 Debug.Log($"[{characterName}] Status removed: {effect.EffectName}");
-            }
         }
 
         public void ClearAllStatusEffects()
@@ -210,17 +280,14 @@ namespace Greenveil.Combat
             }
         }
 
-        public bool HasStatusEffect(string effectName)
+        public bool HasStatusEffectType(StatusEffectType type)
         {
-            return activeStatusEffects.Exists(e => e.EffectName == effectName);
+            return activeStatusEffects.Exists(e => e.EffectType == type);
         }
 
-        public void PrintStats()
+        public StatusEffect GetStatusEffect(StatusEffectType type)
         {
-            Debug.Log($"=== {characterName} ===");
-            Debug.Log($"HP: {currentHealth}/{maxHealth}");
-            Debug.Log($"MP: {currentMP}/{maxMP}");
-            Debug.Log($"ATK: {attack} | DEF: {defense} | SPD: {speed}");
+            return activeStatusEffects.Find(e => e.EffectType == type);
         }
     }
 }

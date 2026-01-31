@@ -1,21 +1,18 @@
 using UnityEngine;
 using Greenveil.Combat;
 
-/// <summary>
-/// Adds a simple colored sprite to represent a character visually
-/// Shows white border when it's this character's turn
-/// Attach this to any character GameObject
-/// </summary>
 [RequireComponent(typeof(SpriteRenderer))]
 public class CharacterVisual : MonoBehaviour
 {
-    [Header("Visual Settings")]
     [SerializeField] private Color characterColor = Color.blue;
     [SerializeField] private Vector2 size = new Vector2(1f, 1.5f);
-    
+
+    public Color CharacterColor => characterColor;
     private SpriteRenderer mainRenderer;
     private GameObject borderObject;
     private SpriteRenderer borderRenderer;
+    private GameObject defendObject;
+    private SpriteRenderer defendRenderer;
     private CombatCharacter character;
     private bool isActive = false;
 
@@ -26,30 +23,33 @@ public class CharacterVisual : MonoBehaviour
 
     void SetupVisual()
     {
-        // Get or create main sprite renderer
         mainRenderer = GetComponent<SpriteRenderer>();
         if (mainRenderer == null)
-        {
             mainRenderer = gameObject.AddComponent<SpriteRenderer>();
-        }
 
-        // Create main character sprite
         Sprite mainSprite = CreateColoredSprite(characterColor, 100, 150);
         mainRenderer.sprite = mainSprite;
         mainRenderer.sortingOrder = 1;
 
-        // Create border object
         borderObject = new GameObject("Border");
         borderObject.transform.SetParent(transform);
         borderObject.transform.localPosition = Vector3.zero;
-        
+
         borderRenderer = borderObject.AddComponent<SpriteRenderer>();
         Sprite borderSprite = CreateColoredSprite(Color.white, 110, 160);
         borderRenderer.sprite = borderSprite;
-        borderRenderer.sortingOrder = 0; // Behind main sprite
-        borderObject.SetActive(false); // Hidden by default
-        
-        // Get character component
+        borderRenderer.sortingOrder = 0;
+        borderObject.SetActive(false);
+
+        defendObject = new GameObject("DefendShield");
+        defendObject.transform.SetParent(transform);
+        defendObject.transform.localPosition = Vector3.zero;
+        defendRenderer = defendObject.AddComponent<SpriteRenderer>();
+        Sprite defendSprite = CreateColoredSprite(new Color(0.3f, 0.6f, 0.9f), 120, 170);
+        defendRenderer.sprite = defendSprite;
+        defendRenderer.sortingOrder = -1;
+        defendObject.SetActive(false);
+
         character = GetComponent<CombatCharacter>();
         if (character != null)
         {
@@ -63,9 +63,7 @@ public class CharacterVisual : MonoBehaviour
         Texture2D texture = new Texture2D(width, height);
         Color[] pixels = new Color[width * height];
         for (int i = 0; i < pixels.Length; i++)
-        {
             pixels[i] = color;
-        }
         texture.SetPixels(pixels);
         texture.Apply();
 
@@ -81,25 +79,31 @@ public class CharacterVisual : MonoBehaviour
     {
         isActive = active;
         if (borderObject != null)
-        {
             borderObject.SetActive(active);
+    }
+
+    void Update()
+    {
+        if (character == null || defendObject == null) return;
+        bool defending = character.IsAlive && character.IsDefending;
+        defendObject.SetActive(defending);
+        if (defending)
+        {
+            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * 4f);
+            defendRenderer.color = new Color(0.3f, 0.6f, 0.9f, pulse);
         }
     }
 
     void OnHealthChanged(float current, float max)
     {
-        // Small shake when taking damage
         StartCoroutine(ShakeDamage());
     }
 
     void OnDefeated()
     {
-        // Fade out when defeated
         mainRenderer.color = new Color(characterColor.r, characterColor.g, characterColor.b, 0.3f);
         if (borderObject != null)
-        {
             borderObject.SetActive(false);
-        }
     }
 
     System.Collections.IEnumerator ShakeDamage()
