@@ -1,0 +1,14 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:VisualElement name="root" style="flex-grow: 1;">
+        <ui:VisualElement name="turnOrderBlock" class="turnOrder__block_scroller" style="flex-grow: 0; border-left-color: rgba(69, 0, 116, 0.54); border-right-color: rgba(69, 0, 116, 0.54); border-top-color: rgba(69, 0, 116, 0.54); border-bottom-color: rgba(69, 0, 116, 0.54); width: 10%; height: 33%;">
+            <ui:ScrollView style="width: 55px; height: 120px; justify-content: flex-start; align-items: stretch;">
+                <ui:VisualElement name="characterTurn" style="width: 25px; height: 20px; background-color: rgba(0, 51, 162, 0.52);" />
+                <ui:VisualElement name="enemyTurn" style="width: 25px; height: 20px; background-color: rgba(162, 16, 0, 0.52);" />
+                <ui:VisualElement name="characterTurn" style="width: 25px; height: 20px; background-color: rgba(0, 51, 162, 0.52);" />
+                <ui:VisualElement name="characterTurn" style="width: 25px; height: 20px; background-color: rgba(0, 51, 162, 0.52);" />
+                <ui:VisualElement name="characterTurn" style="width: 25px; height: 20px; background-color: rgba(0, 51, 162, 0.52);" />
+                <ui:VisualElement name="characterTurn" style="width: 25px; height: 20px; background-color: rgba(0, 51, 162, 0.52);" />
+            </ui:ScrollView>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

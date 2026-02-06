@@ -1,0 +1,6 @@
+
+.turnOrder__block_scroller > .unity-scroller__low-button
+{
+    width: 10px;
+    height: 10px;
+}
