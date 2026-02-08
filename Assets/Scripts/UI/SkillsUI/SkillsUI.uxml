@@ -1,0 +1,17 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/Scripts/UI/SkillsUI/SkillsUI.uss?fileID=7433441132597879392&amp;guid=8b9faebaf8761c94496a812ba373d0b5&amp;type=3#SkillsUI" />
+    <ui:VisualElement name="root" style="flex-grow: 0; background-size: 40% 40%;">
+        <ui:VisualElement name="attack" style="flex-grow: 0; width: 115px; height: 45px; top: 50px; left: 115px; background-color: rgb(255, 247, 71);">
+            <ui:Button text="Attack" name="attackButton" class="skills__button" style="-unity-font-definition: url(&quot;project://database/Assets/TextMesh%20Pro/Examples%20&amp;%20Extras/Fonts/Bangers.ttf?fileID=12800000&amp;guid=5dd49b3eacc540408c98eee0de38e0f1&amp;type=3#Bangers&quot;);" />
+        </ui:VisualElement>
+        <ui:VisualElement name="skills" style="flex-grow: 0; width: 115px; height: 45px; top: 65px; left: 235px; background-color: rgb(255, 247, 71);">
+            <ui:Button text="Skills" name="skillsButton" class="skills__button" style="-unity-font-definition: url(&quot;project://database/Assets/TextMesh%20Pro/Examples%20&amp;%20Extras/Fonts/Bangers.ttf?fileID=12800000&amp;guid=5dd49b3eacc540408c98eee0de38e0f1&amp;type=3#Bangers&quot;);" />
+        </ui:VisualElement>
+        <ui:VisualElement name="items" style="flex-grow: 0; width: 115px; height: 45px; top: 20px; left: 0; background-color: rgb(255, 247, 71);">
+            <ui:Button text="Items" name="itemsButton" class="skills__button" style="-unity-font-definition: url(&quot;project://database/Assets/TextMesh%20Pro/Examples%20&amp;%20Extras/Fonts/Bangers.ttf?fileID=12800000&amp;guid=5dd49b3eacc540408c98eee0de38e0f1&amp;type=3#Bangers&quot;);" />
+        </ui:VisualElement>
+        <ui:VisualElement name="flee" style="flex-grow: 0; width: 115px; height: 45px; top: 36px; left: 115px; background-color: rgb(255, 247, 71);">
+            <ui:Button text="Flee" name="fleeButton" class="skills__button" style="-unity-font-definition: url(&quot;project://database/Assets/TextMesh%20Pro/Examples%20&amp;%20Extras/Fonts/Bangers.ttf?fileID=12800000&amp;guid=5dd49b3eacc540408c98eee0de38e0f1&amp;type=3#Bangers&quot;);" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

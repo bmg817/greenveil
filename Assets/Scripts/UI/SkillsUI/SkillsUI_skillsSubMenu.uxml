@@ -1,0 +1,22 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/Scripts/UI/SkillsUI/SkillsUI.uss?fileID=7433441132597879392&amp;guid=8b9faebaf8761c94496a812ba373d0b5&amp;type=3#SkillsUI" />
+    <ui:VisualElement name="root" style="flex-grow: 1;">
+        <ui:VisualElement name="skillHints" style="flex-grow: 1; position: absolute; width: 200px; height: auto; left: 168px; top: 15px; background-color: rgba(0, 0, 0, 0.59); -unity-font-definition: url(&quot;project://database/Assets/TextMesh%20Pro/Examples%20&amp;%20Extras/Fonts/Bangers.ttf?fileID=12800000&amp;guid=5dd49b3eacc540408c98eee0de38e0f1&amp;type=3#Bangers&quot;); color: rgb(255, 255, 255); -unity-text-align: lower-center; font-size: 13px;">
+            <ui:Label text="Roots one enemy, delaying their turn." name="skill1_Hint" style="white-space: normal;" />
+        </ui:VisualElement>
+        <ui:VisualElement name="skillsMenu" style="flex-grow: 1; width: 160px; height: 300px; background-color: rgb(0, 66, 3);">
+            <ui:Button text="Bramble Bind" name="skill1" enable-rich-text="true" style="-unity-font-definition: url(&quot;project://database/Assets/TextMesh%20Pro/Examples%20&amp;%20Extras/Fonts/Bangers.ttf?fileID=12800000&amp;guid=5dd49b3eacc540408c98eee0de38e0f1&amp;type=3#Bangers&quot;); font-size: 15px; color: rgb(229, 229, 64); background-color: rgb(0, 67, 4); border-left-color: rgb(255, 247, 71); border-right-color: rgb(255, 247, 71); border-top-color: rgb(255, 247, 71); border-bottom-color: rgb(255, 247, 71); -unity-text-align: middle-left;">
+                <ui:Label text="10 MP" name="skill1_MPCost" style="left: 90px; -unity-font-style: normal; font-size: 18px; top: -1px;" />
+            </ui:Button>
+            <ui:Button text="Echo Verse" name="skill2" enable-rich-text="true" style="-unity-font-definition: url(&quot;project://database/Assets/TextMesh%20Pro/Examples%20&amp;%20Extras/Fonts/Bangers.ttf?fileID=12800000&amp;guid=5dd49b3eacc540408c98eee0de38e0f1&amp;type=3#Bangers&quot;); font-size: 15px; color: rgb(229, 229, 64); background-color: rgb(0, 67, 4); border-left-color: rgb(255, 247, 71); border-right-color: rgb(255, 247, 71); border-top-color: rgb(255, 247, 71); border-bottom-color: rgb(255, 247, 71); -unity-text-align: middle-left;">
+                <ui:Label text="10 MP" name="skill2_MPCost" style="left: 90px; -unity-font-style: normal; font-size: 18px; top: -1px;" />
+            </ui:Button>
+            <ui:Button text="Hunter&apos;s Mark" name="skill3" enable-rich-text="true" style="-unity-font-definition: url(&quot;project://database/Assets/TextMesh%20Pro/Examples%20&amp;%20Extras/Fonts/Bangers.ttf?fileID=12800000&amp;guid=5dd49b3eacc540408c98eee0de38e0f1&amp;type=3#Bangers&quot;); font-size: 15px; color: rgb(229, 229, 64); background-color: rgb(0, 67, 4); border-left-color: rgb(255, 247, 71); border-right-color: rgb(255, 247, 71); border-top-color: rgb(255, 247, 71); border-bottom-color: rgb(255, 247, 71); -unity-text-align: middle-left;">
+                <ui:Label text="10 MP" name="skill3_MPCost" style="left: 90px; -unity-font-style: normal; font-size: 18px; top: -1px;" />
+            </ui:Button>
+            <ui:Button text="Hail of Arrows" name="skill4" enable-rich-text="true" style="-unity-font-definition: url(&quot;project://database/Assets/TextMesh%20Pro/Examples%20&amp;%20Extras/Fonts/Bangers.ttf?fileID=12800000&amp;guid=5dd49b3eacc540408c98eee0de38e0f1&amp;type=3#Bangers&quot;); font-size: 15px; color: rgb(229, 229, 64); background-color: rgb(0, 67, 4); border-left-color: rgb(255, 247, 71); border-right-color: rgb(255, 247, 71); border-top-color: rgb(255, 247, 71); border-bottom-color: rgb(255, 247, 71); -unity-text-align: middle-left;">
+                <ui:Label text="10 MP" name="skill4_MPCost" style="left: 90px; -unity-font-style: normal; font-size: 18px; top: -1px;" />
+            </ui:Button>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
