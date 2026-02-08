@@ -77,7 +77,9 @@ public class CharacterVisual : MonoBehaviour
                 animFrames = frames.ToArray();
                 // Use the first animation frame as the main sprite
                 characterSprite = animFrames[0];
-                Debug.Log($"[CharacterVisual] {gameObject.name}: Loaded {animFrames.Length} animation frames");
+                // Breathing animations (2 frames) use slower delay; multi-frame idles use faster
+                frameDelay = animFrames.Length <= 2 ? 0.6f : 0.35f;
+                Debug.Log($"[CharacterVisual] {gameObject.name}: Loaded {animFrames.Length} animation frames (delay={frameDelay}s)");
             }
         }
 

@@ -76,7 +76,16 @@ public class CombatSceneSetup : MonoBehaviour
             t.position = new Vector3(startX + i * spacing, yPos + yStagger, 0f);
             if (faceDown && !HasSprite(characters[i]))
                 t.localScale = new Vector3(t.localScale.x, -Mathf.Abs(t.localScale.y), t.localScale.z);
-            Debug.Log($"[CombatSceneSetup] Positioned {characters[i].CharacterName} at {t.position}");
+
+            // Flip all player sprites so they face inward toward the enemy
+            if (!faceDown)
+            {
+                float absScale = Mathf.Abs(t.localScale.x);
+                t.localScale = new Vector3(-absScale, t.localScale.y, t.localScale.z);
+                Debug.Log($"[CombatSceneSetup] Flipped {characters[i].CharacterName} X scale to {-absScale}");
+            }
+
+            Debug.Log($"[CombatSceneSetup] Positioned {characters[i].CharacterName} at {t.position} scale={t.localScale}");
         }
     }
 

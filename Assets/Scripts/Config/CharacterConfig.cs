@@ -16,5 +16,6 @@ namespace Greenveil.Combat
         public int speed;
         public string basicAttackId;
         public string[] skillIds;
+        public int actionsPerTurn = 1;
     }
 }
