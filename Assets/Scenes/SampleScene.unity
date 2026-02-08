@@ -789,6 +789,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CharacterVisual
   characterColor: {r: 1, g: 1, b: 1, a: 1}
   size: {x: 1, y: 1.5}
+  characterSprite: {fileID: 0}
 --- !u!212 &1962907550
 SpriteRenderer:
   m_ObjectHideFlags: 0

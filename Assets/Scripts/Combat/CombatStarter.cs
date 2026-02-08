@@ -9,6 +9,9 @@ public class CombatStarter : MonoBehaviour
     [SerializeField] private List<CombatCharacter> playerCharacters = new List<CombatCharacter>();
     [SerializeField] private List<CombatCharacter> enemyCharacters = new List<CombatCharacter>();
 
+    public IReadOnlyList<CombatCharacter> Players => playerCharacters;
+    public IReadOnlyList<CombatCharacter> Enemies => enemyCharacters;
+
     private TurnOrderManager turnManager;
     private CombatActionExecutor actionExecutor;
     private AutoCombatHUD autoCombatHUD;
@@ -24,6 +27,9 @@ public class CombatStarter : MonoBehaviour
         turnManager = GetComponent<TurnOrderManager>();
         actionExecutor = GetComponent<CombatActionExecutor>();
         autoCombatHUD = GetComponent<AutoCombatHUD>();
+
+        if (GetComponent<CombatVFX>() == null)
+            gameObject.AddComponent<CombatVFX>();
 
         if (turnManager == null || actionExecutor == null)
         {
@@ -123,7 +129,13 @@ public class CombatStarter : MonoBehaviour
             {
                 var filtered = usable.Where(s => s.id != "ancient_reflex").ToList();
                 if (filtered.Count > 0)
-                    chosenAbility = filtered[Random.Range(0, filtered.Count)];
+                {
+                    var singleTarget = filtered.Where(s => s.Target == TargetType.SingleEnemy).ToList();
+                    if (singleTarget.Count > 0 && Random.value < 0.75f)
+                        chosenAbility = singleTarget[Random.Range(0, singleTarget.Count)];
+                    else
+                        chosenAbility = filtered[Random.Range(0, filtered.Count)];
+                }
                 else
                     chosenAbility = usable[Random.Range(0, usable.Count)];
             }

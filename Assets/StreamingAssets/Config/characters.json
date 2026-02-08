@@ -51,6 +51,58 @@
       "speed": 6,
       "basicAttackId": "root_swipe",
       "skillIds": ["root_swipe", "spore_burst", "ancient_reflex"]
+    },
+    {
+      "id": "ramza",
+      "name": "Ramza Beoulve",
+      "role": "Damage",
+      "element": "Light",
+      "maxHealth": 110,
+      "maxMP": 25,
+      "attack": 24,
+      "defense": 12,
+      "speed": 12,
+      "basicAttackId": "holy_strike",
+      "skillIds": ["shout", "steel", "ultima"]
+    },
+    {
+      "id": "agrias",
+      "name": "Agrias Oaks",
+      "role": "Tank",
+      "element": "Light",
+      "maxHealth": 130,
+      "maxMP": 25,
+      "attack": 22,
+      "defense": 14,
+      "speed": 9,
+      "basicAttackId": "holy_blade",
+      "skillIds": ["holy_explosion", "judgment_blade", "hallowed_bolt"]
+    },
+    {
+      "id": "beowulf",
+      "name": "Beowulf Kadmus",
+      "role": "Support",
+      "element": "Dark",
+      "maxHealth": 90,
+      "maxMP": 35,
+      "attack": 20,
+      "defense": 10,
+      "speed": 11,
+      "basicAttackId": "dark_strike",
+      "skillIds": ["chicken", "vengeance", "faith_drain"]
+    },
+    {
+      "id": "orlandu",
+      "name": "Cidolfas Orlandu",
+      "role": "Damage",
+      "element": "Dark",
+      "maxHealth": 120,
+      "maxMP": 30,
+      "attack": 28,
+      "defense": 13,
+      "speed": 10,
+      "basicAttackId": "shadow_blade",
+      "skillIds": ["nightsword", "stasis_sword", "crush_punch"]
     }
   ]
 }
