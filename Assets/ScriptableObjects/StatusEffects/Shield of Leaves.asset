@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::StatusEffectData
   effectName: Shield of Leaves
   description: Shield of leaves nullifies the damage of the next 3 incoming hits
-  icon: {fileID: 0}
+  icon: {fileID: -173895065625441732, guid: a71bdb3f4df154e49b10017cdca4ac81, type: 3}
   maxStacks: 1
   isDebuff: 0

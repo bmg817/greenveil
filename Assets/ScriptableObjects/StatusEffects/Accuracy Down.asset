@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::StatusEffectData
   effectName: Accuracy Down
   description: Accuracy stat of character is lowered by 25%
-  icon: {fileID: 0}
+  icon: {fileID: 8307332857432540144, guid: aec1549b1446aaf4d83af4f611394723, type: 3}
   maxStacks: 2
   isDebuff: 1

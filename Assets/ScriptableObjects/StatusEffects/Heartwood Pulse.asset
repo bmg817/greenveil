@@ -15,6 +15,6 @@ MonoBehaviour:
   effectName: Heartwood Pulse
   description: If another character gets damaged or healed, character with Heartwood
     Pulse absorbs half it it
-  icon: {fileID: 0}
+  icon: {fileID: 1707599848025395198, guid: 2cdb76a739c3bb0479926f0e1230f22c, type: 3}
   maxStacks: 1
   isDebuff: 0

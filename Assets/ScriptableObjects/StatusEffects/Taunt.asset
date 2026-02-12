@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::StatusEffectData
   effectName: Taunt
   description: If taunt is active enemy attacks target the character with Taunt status
-  icon: {fileID: 0}
+  icon: {fileID: 8884450956226027453, guid: e02faa84c75b52145a2f18a22c5a02c8, type: 3}
   maxStacks: 1
   isDebuff: 0

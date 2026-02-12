@@ -17,6 +17,6 @@ MonoBehaviour:
     status next attack on them gives AOE damage (damaging all surrounding characters),
     and additional traps get planted on neighboured characters (if they get attacked
     same thing happens)
-  icon: {fileID: 0}
+  icon: {fileID: 4720509146363512858, guid: 63d690159f2683c4c8c1befb8ed9dfba, type: 3}
   maxStacks: 1
   isDebuff: 0
