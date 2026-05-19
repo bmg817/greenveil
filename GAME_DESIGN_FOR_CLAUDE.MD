@@ -1,3 +1,5 @@
+Download the Build to try out the prototype: greenveil\Build.zip
+
 MVP
 Brittany
 Elfi
