@@ -1,45 +1,112 @@
 using UnityEngine;
+using System.Collections.Generic;
+using Greenveil.Combat;
 
 public class CombatSceneSetup : MonoBehaviour
 {
-    [SerializeField] private Transform[] playerCharacters;
-    [SerializeField] private Transform[] enemyCharacters;
-    [SerializeField] private Vector3 playerStartPosition = new Vector3(-4f, 0f, 0f);
-    [SerializeField] private Vector3 enemyStartPosition = new Vector3(4f, 0f, 0f);
-    [SerializeField] private float verticalSpacing = 2f;
+    [SerializeField] private float staggerAmount = 0.3f;
 
     void Start()
     {
+        EnsureForestBackground();
         PositionCharacters();
+    }
+
+    void EnsureForestBackground()
+    {
+        if (FindAnyObjectByType<ForestBackground>() == null)
+        {
+            var bgObj = new GameObject("ForestBackground");
+            bgObj.AddComponent<ForestBackground>();
+        }
     }
 
     void PositionCharacters()
     {
-        for (int i = 0; i < playerCharacters.Length; i++)
+        Camera cam = Camera.main;
+        if (cam == null)
         {
-            if (playerCharacters[i] != null)
-            {
-                float yOffset = (playerCharacters.Length - 1) * verticalSpacing / 2f;
-                playerCharacters[i].position = playerStartPosition + new Vector3(0, yOffset - (i * verticalSpacing), 0);
-            }
+            Debug.LogError("[CombatSceneSetup] Camera.main is null!");
+            return;
         }
 
-        for (int i = 0; i < enemyCharacters.Length; i++)
+        var starter = FindAnyObjectByType<CombatStarter>();
+        if (starter == null)
         {
-            if (enemyCharacters[i] != null)
-            {
-                float yOffset = (enemyCharacters.Length - 1) * verticalSpacing / 2f;
-                enemyCharacters[i].position = enemyStartPosition + new Vector3(0, yOffset - (i * verticalSpacing), 0);
-            }
+            Debug.LogError("[CombatSceneSetup] No CombatStarter found!");
+            return;
         }
+
+        float camHeight = cam.orthographicSize;
+        float camWidth = camHeight * cam.aspect;
+        float usableWidth = camWidth * 2f * 0.4f;
+
+        float enemyY = camHeight * 0.4f;
+        float playerY = -camHeight * 0.3f;
+
+        Debug.Log($"[CombatSceneSetup] Camera: orthoSize={camHeight}, aspect={cam.aspect}, width={camWidth}");
+        Debug.Log($"[CombatSceneSetup] Players={starter.Players.Count}, Enemies={starter.Enemies.Count}");
+        Debug.Log($"[CombatSceneSetup] enemyY={enemyY}, playerY={playerY}, usableWidth={usableWidth}");
+
+        PositionGroup(starter.Enemies, enemyY, usableWidth, true);
+        PositionGroup(starter.Players, playerY, usableWidth, false);
+    }
+
+    void PositionGroup(IReadOnlyList<CombatCharacter> characters, float yPos, float totalWidth, bool faceDown)
+    {
+        if (characters.Count == 0) return;
+
+        if (characters.Count == 1)
+        {
+            Transform t = characters[0].transform;
+            t.position = new Vector3(0f, yPos, 0f);
+            if (faceDown && !HasSprite(characters[0]))
+                t.localScale = new Vector3(t.localScale.x, -Mathf.Abs(t.localScale.y), t.localScale.z);
+            Debug.Log($"[CombatSceneSetup] Positioned {characters[0].CharacterName} at {t.position}");
+            return;
+        }
+
+        float spacing = totalWidth / (characters.Count - 1);
+        float startX = -totalWidth / 2f;
+
+        for (int i = 0; i < characters.Count; i++)
+        {
+            Transform t = characters[i].transform;
+            float yStagger = (i % 2 == 1) ? staggerAmount : 0f;
+            t.position = new Vector3(startX + i * spacing, yPos + yStagger, 0f);
+            if (faceDown && !HasSprite(characters[i]))
+                t.localScale = new Vector3(t.localScale.x, -Mathf.Abs(t.localScale.y), t.localScale.z);
+
+            // Flip all player sprites so they face inward toward the enemy
+            if (!faceDown)
+            {
+                float absScale = Mathf.Abs(t.localScale.x);
+                t.localScale = new Vector3(-absScale, t.localScale.y, t.localScale.z);
+                Debug.Log($"[CombatSceneSetup] Flipped {characters[i].CharacterName} X scale to {-absScale}");
+            }
+
+            Debug.Log($"[CombatSceneSetup] Positioned {characters[i].CharacterName} at {t.position} scale={t.localScale}");
+        }
+    }
+
+    bool HasSprite(CombatCharacter character)
+    {
+        var visual = character.GetComponent<CharacterVisual>();
+        return visual != null && visual.HasAssignedSprite;
     }
 
     void OnDrawGizmos()
     {
-        Gizmos.color = Color.blue;
-        Gizmos.DrawWireCube(playerStartPosition, new Vector3(2f, 5f, 1f));
+        Camera cam = Camera.main;
+        if (cam == null) return;
+
+        float camHeight = cam.orthographicSize;
+        float camWidth = camHeight * cam.aspect;
 
         Gizmos.color = Color.red;
-        Gizmos.DrawWireCube(enemyStartPosition, new Vector3(2f, 5f, 1f));
+        Gizmos.DrawWireCube(new Vector3(0, camHeight * 0.5f, 0), new Vector3(camWidth * 2f, camHeight, 0));
+
+        Gizmos.color = Color.blue;
+        Gizmos.DrawWireCube(new Vector3(0, -camHeight * 0.5f, 0), new Vector3(camWidth * 2f, camHeight, 0));
     }
 }

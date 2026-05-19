@@ -37,6 +37,7 @@ namespace Greenveil.Combat
         [SerializeField] private float basicAttackPower = 10f;
         [SerializeField] private float basicAttackMPRestorePercent = 20f;
 
+        public System.Action<CombatAction> OnActionAboutToExecute;
         public System.Action<CombatAction> OnActionExecuted;
         public System.Action<CombatCharacter, float> OnDamageDealt;
         public System.Action<CombatCharacter, float> OnHealingDone;
@@ -83,6 +84,8 @@ namespace Greenveil.Combat
             }
 
             Debug.Log($">>> {action.user.CharacterName} performs {action.actionType} <<<");
+
+            OnActionAboutToExecute?.Invoke(action);
 
             bool success = false;
 

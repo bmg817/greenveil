@@ -11,11 +11,11 @@ public class AutoCombatHUD : MonoBehaviour
     [SerializeField] private Color hpColorLow = new Color(0.95f, 0.2f, 0.2f);
     [SerializeField] private Color mpColor = new Color(0.2f, 0.6f, 0.95f);
 
-    private const float BAR_WIDTH = 280f;
-    private const float BAR_HEIGHT = 18f;
-    private const float PANEL_WIDTH = 320f;
-    private const float PANEL_HEIGHT = 140f;
-    private const float PANEL_SPACING = 10f;
+    private const float BAR_WIDTH = 160f;
+    private const float BAR_HEIGHT = 12f;
+    private const float PANEL_WIDTH = 190f;
+    private const float PANEL_HEIGHT = 90f;
+    private const float PANEL_SPACING = 6f;
 
     private Canvas canvas;
     private Dictionary<CombatCharacter, CharacterHUD> characterHUDs = new Dictionary<CombatCharacter, CharacterHUD>();
@@ -37,9 +37,9 @@ public class AutoCombatHUD : MonoBehaviour
     private Dictionary<CombatCharacter, Color> characterColors = new Dictionary<CombatCharacter, Color>();
 
     private const int MAX_SKILL_ENTRIES = 7;
-    private const float SKILL_ENTRY_WIDTH = 200f;
-    private const float SKILL_ENTRY_HEIGHT = 50f;
-    private const float SKILL_ENTRY_SPACING = 8f;
+    private const float SKILL_ENTRY_WIDTH = 130f;
+    private const float SKILL_ENTRY_HEIGHT = 34f;
+    private const float SKILL_ENTRY_SPACING = 4f;
     private GameObject skillsBar;
     private List<SkillBarEntry> skillBarEntries = new List<SkillBarEntry>();
 
@@ -83,22 +83,22 @@ public class AutoCombatHUD : MonoBehaviour
         infoRect.anchorMax = new Vector2(1, 0);
         infoRect.pivot = new Vector2(0.5f, 0);
         infoRect.anchoredPosition = new Vector2(0, 0);
-        infoRect.sizeDelta = new Vector2(0, 160);
+        infoRect.sizeDelta = new Vector2(0, 80);
 
-        roundText = CreateText(infoPanel.transform, "Round: 1", 26, Color.yellow);
-        SetRectAnchored(roundText, new Vector2(0, 1), new Vector2(0, 1), new Vector2(20, -10), new Vector2(250, 32));
+        roundText = CreateText(infoPanel.transform, "Round: 1", 14, Color.yellow);
+        SetRectAnchored(roundText, new Vector2(0, 1), new Vector2(0, 1), new Vector2(10, -4), new Vector2(150, 18));
         roundText.alignment = TextAlignmentOptions.TopLeft;
 
-        turnText = CreateText(infoPanel.transform, "Turn: ...", 26, Color.yellow);
-        SetRectAnchored(turnText, new Vector2(1, 1), new Vector2(1, 1), new Vector2(-20, -10), new Vector2(300, 32), new Vector2(1, 1));
+        turnText = CreateText(infoPanel.transform, "Turn: ...", 14, Color.yellow);
+        SetRectAnchored(turnText, new Vector2(1, 1), new Vector2(1, 1), new Vector2(-10, -4), new Vector2(200, 18), new Vector2(1, 1));
         turnText.alignment = TextAlignmentOptions.TopRight;
 
-        actionLogText = CreateText(infoPanel.transform, "Combat starting...", 20, Color.white);
+        actionLogText = CreateText(infoPanel.transform, "Combat starting...", 12, Color.white);
         RectTransform logRect = actionLogText.GetComponent<RectTransform>();
         logRect.anchorMin = new Vector2(0, 0);
         logRect.anchorMax = new Vector2(1, 1);
-        logRect.offsetMin = new Vector2(20, 20);
-        logRect.offsetMax = new Vector2(-20, -48);
+        logRect.offsetMin = new Vector2(10, 8);
+        logRect.offsetMax = new Vector2(-10, -24);
         actionLogText.alignment = TextAlignmentOptions.TopLeft;
 
         CreateTurnOrderPanel();
@@ -107,24 +107,25 @@ public class AutoCombatHUD : MonoBehaviour
 
     void CreateTurnOrderPanel()
     {
-        float panelHeight = 32f + TURN_ORDER_COUNT * TURN_ENTRY_HEIGHT + 10f;
+        float entryHeight = 20f;
+        float panelHeight = 22f + TURN_ORDER_COUNT * entryHeight + 6f;
 
         turnOrderPanel = CreatePanel(canvas.transform, new Color(0.05f, 0.05f, 0.05f, 0.9f));
         RectTransform panelRect = turnOrderPanel.GetComponent<RectTransform>();
         panelRect.anchorMin = new Vector2(0, 1);
         panelRect.anchorMax = new Vector2(0, 1);
         panelRect.pivot = new Vector2(0, 1);
-        panelRect.anchoredPosition = new Vector2(350, -20);
-        panelRect.sizeDelta = new Vector2(220, panelHeight);
+        panelRect.anchoredPosition = new Vector2(210, -10);
+        panelRect.sizeDelta = new Vector2(160, panelHeight);
 
-        var header = CreateText(turnOrderPanel.transform, "Turn Order", 20, Color.yellow);
-        SetRectAnchored(header, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -4), new Vector2(200, 28));
+        var header = CreateText(turnOrderPanel.transform, "Turn Order", 13, Color.yellow);
+        SetRectAnchored(header, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -2), new Vector2(150, 18));
         header.alignment = TextAlignmentOptions.Center;
         header.fontStyle = FontStyles.Bold;
 
         for (int i = 0; i < TURN_ORDER_COUNT; i++)
         {
-            float yPos = -34f - i * TURN_ENTRY_HEIGHT;
+            float yPos = -22f - i * entryHeight;
             var entry = new TurnOrderEntry();
 
             entry.row = new GameObject("TurnEntry");
@@ -134,7 +135,7 @@ public class AutoCombatHUD : MonoBehaviour
             rowRect.anchorMax = new Vector2(0, 1);
             rowRect.pivot = new Vector2(0, 1);
             rowRect.anchoredPosition = new Vector2(0, yPos);
-            rowRect.sizeDelta = new Vector2(220, TURN_ENTRY_HEIGHT);
+            rowRect.sizeDelta = new Vector2(160, entryHeight);
 
             GameObject indicatorObj = new GameObject("Indicator");
             indicatorObj.transform.SetParent(entry.row.transform, false);
@@ -143,14 +144,14 @@ public class AutoCombatHUD : MonoBehaviour
             indRect.anchorMin = new Vector2(0, 0.5f);
             indRect.anchorMax = new Vector2(0, 0.5f);
             indRect.pivot = new Vector2(0, 0.5f);
-            indRect.anchoredPosition = new Vector2(8, 0);
-            indRect.sizeDelta = new Vector2(14, 14);
+            indRect.anchoredPosition = new Vector2(6, 0);
+            indRect.sizeDelta = new Vector2(10, 10);
 
-            entry.marker = CreateText(entry.row.transform, "", 16, Color.yellow);
-            SetRectAnchored(entry.marker, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(28, 0), new Vector2(16, TURN_ENTRY_HEIGHT), new Vector2(0, 0.5f));
+            entry.marker = CreateText(entry.row.transform, "", 11, Color.yellow);
+            SetRectAnchored(entry.marker, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(20, 0), new Vector2(12, entryHeight), new Vector2(0, 0.5f));
 
-            entry.nameText = CreateText(entry.row.transform, "", 16, Color.white);
-            SetRectAnchored(entry.nameText, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(44, 0), new Vector2(170, TURN_ENTRY_HEIGHT), new Vector2(0, 0.5f));
+            entry.nameText = CreateText(entry.row.transform, "", 11, Color.white);
+            SetRectAnchored(entry.nameText, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(34, 0), new Vector2(120, entryHeight), new Vector2(0, 0.5f));
             entry.nameText.alignment = TextAlignmentOptions.Left;
 
             turnOrderEntries.Add(entry);
@@ -162,19 +163,36 @@ public class AutoCombatHUD : MonoBehaviour
         if (character == null || characterHUDs.ContainsKey(character)) return;
 
         int index = isPlayer ? playerCount++ : enemyCount++;
-        float yOffset = -20f - index * (PANEL_HEIGHT + PANEL_SPACING);
+        float xPos = 10f + index * (PANEL_WIDTH + PANEL_SPACING);
 
-        Vector2 position = isPlayer ? new Vector2(20, yOffset) : new Vector2(-20, yOffset);
-        Vector2 anchor = isPlayer ? new Vector2(0, 1) : new Vector2(1, 1);
-        Color panelColor = isPlayer
-            ? new Color(0.1f, 0.15f, 0.3f, 1f)
-            : new Color(0.3f, 0.1f, 0.15f, 1f);
+        Vector2 position;
+        Vector2 anchorMin;
+        Vector2 anchorMax;
+        Vector2 pivot;
+        Color panelColor;
+
+        if (isPlayer)
+        {
+            anchorMin = new Vector2(0, 0);
+            anchorMax = new Vector2(0, 0);
+            pivot = new Vector2(0, 0);
+            position = new Vector2(xPos, 86f);
+            panelColor = new Color(0.1f, 0.15f, 0.3f, 1f);
+        }
+        else
+        {
+            anchorMin = new Vector2(0, 1);
+            anchorMax = new Vector2(0, 1);
+            pivot = new Vector2(0, 1);
+            position = new Vector2(xPos, -10f);
+            panelColor = new Color(0.3f, 0.1f, 0.15f, 1f);
+        }
 
         GameObject panel = CreatePanel(canvas.transform, panelColor);
         RectTransform panelRect = panel.GetComponent<RectTransform>();
-        panelRect.anchorMin = anchor;
-        panelRect.anchorMax = anchor;
-        panelRect.pivot = new Vector2(isPlayer ? 0 : 1, 1);
+        panelRect.anchorMin = anchorMin;
+        panelRect.anchorMax = anchorMax;
+        panelRect.pivot = pivot;
         panelRect.anchoredPosition = position;
         panelRect.sizeDelta = new Vector2(PANEL_WIDTH, PANEL_HEIGHT);
 
@@ -187,27 +205,27 @@ public class AutoCombatHUD : MonoBehaviour
         Color charColor = visual != null ? visual.CharacterColor : (isPlayer ? new Color(0.3f, 0.5f, 0.9f) : new Color(0.9f, 0.3f, 0.3f));
         characterColors[character] = charColor;
 
-        hud.nameText = CreateText(panel.transform, character.CharacterName, 24, Color.white);
-        SetRectAnchored(hud.nameText, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -6), new Vector2(PANEL_WIDTH - 20, 28));
+        hud.nameText = CreateText(panel.transform, character.CharacterName, 14, Color.white);
+        SetRectAnchored(hud.nameText, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -3), new Vector2(PANEL_WIDTH - 10, 18));
         hud.nameText.alignment = TextAlignmentOptions.Center;
         hud.nameText.fontStyle = FontStyles.Bold;
 
-        hud.hpText = CreateText(panel.transform, "HP:", 18, Color.white);
-        SetRectAnchored(hud.hpText, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -36), new Vector2(PANEL_WIDTH - 20, 22));
+        hud.hpText = CreateText(panel.transform, "HP:", 11, Color.white);
+        SetRectAnchored(hud.hpText, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -22), new Vector2(PANEL_WIDTH - 10, 14));
         hud.hpText.alignment = TextAlignmentOptions.Center;
 
-        hud.hpBarBg = CreateBarBackground(panel.transform, new Vector2(0, -60));
+        hud.hpBarBg = CreateBarBackground(panel.transform, new Vector2(0, -38));
         hud.hpBarFill = CreateBarFill(hud.hpBarBg.transform, hpColorHigh);
 
-        hud.mpText = CreateText(panel.transform, "MP:", 18, Color.white);
-        SetRectAnchored(hud.mpText, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -84), new Vector2(PANEL_WIDTH - 20, 22));
+        hud.mpText = CreateText(panel.transform, "MP:", 11, Color.white);
+        SetRectAnchored(hud.mpText, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -54), new Vector2(PANEL_WIDTH - 10, 14));
         hud.mpText.alignment = TextAlignmentOptions.Center;
 
-        hud.mpBarBg = CreateBarBackground(panel.transform, new Vector2(0, -108));
+        hud.mpBarBg = CreateBarBackground(panel.transform, new Vector2(0, -70));
         hud.mpBarFill = CreateBarFill(hud.mpBarBg.transform, mpColor);
 
-        hud.defendText = CreateText(panel.transform, "DEFENDING", 16, new Color(1f, 0.85f, 0.2f));
-        SetRectAnchored(hud.defendText, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 4), new Vector2(PANEL_WIDTH - 20, 20), new Vector2(0.5f, 0));
+        hud.defendText = CreateText(panel.transform, "DEFENDING", 10, new Color(1f, 0.85f, 0.2f));
+        SetRectAnchored(hud.defendText, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 2), new Vector2(PANEL_WIDTH - 10, 14), new Vector2(0.5f, 0));
         hud.defendText.alignment = TextAlignmentOptions.Center;
         hud.defendText.fontStyle = FontStyles.Bold;
         hud.defendText.gameObject.SetActive(false);
@@ -297,7 +315,7 @@ public class AutoCombatHUD : MonoBehaviour
         barRect.anchorMin = new Vector2(0.5f, 0);
         barRect.anchorMax = new Vector2(0.5f, 0);
         barRect.pivot = new Vector2(0.5f, 0);
-        barRect.anchoredPosition = new Vector2(0, 160);
+        barRect.anchoredPosition = new Vector2(0, 80);
         float totalWidth = MAX_SKILL_ENTRIES * SKILL_ENTRY_WIDTH + (MAX_SKILL_ENTRIES - 1) * SKILL_ENTRY_SPACING + 20f;
         barRect.sizeDelta = new Vector2(totalWidth, SKILL_ENTRY_HEIGHT + 10f);
 
@@ -317,13 +335,13 @@ public class AutoCombatHUD : MonoBehaviour
             entry.background = entry.panel.GetComponent<Image>();
             entry.normalBg = new Color(0.15f, 0.15f, 0.22f, 1f);
 
-            entry.keyText = CreateText(entry.panel.transform, "", 14, Color.yellow);
-            SetRectAnchored(entry.keyText, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -2), new Vector2(SKILL_ENTRY_WIDTH - 10, 18));
+            entry.keyText = CreateText(entry.panel.transform, "", 10, Color.yellow);
+            SetRectAnchored(entry.keyText, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -1), new Vector2(SKILL_ENTRY_WIDTH - 6, 14));
             entry.keyText.alignment = TextAlignmentOptions.Center;
             entry.keyText.fontStyle = FontStyles.Bold;
 
-            entry.nameText = CreateText(entry.panel.transform, "", 14, Color.white);
-            SetRectAnchored(entry.nameText, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 4), new Vector2(SKILL_ENTRY_WIDTH - 10, 18), new Vector2(0.5f, 0));
+            entry.nameText = CreateText(entry.panel.transform, "", 10, Color.white);
+            SetRectAnchored(entry.nameText, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 2), new Vector2(SKILL_ENTRY_WIDTH - 6, 14), new Vector2(0.5f, 0));
             entry.nameText.alignment = TextAlignmentOptions.Center;
 
             entry.panel.SetActive(false);
@@ -432,6 +450,17 @@ public class AutoCombatHUD : MonoBehaviour
     {
         string abilityName = action.ability != null ? action.ability.AbilityName : action.actionType.ToString();
         AddToLog($"{action.user.CharacterName} uses {abilityName}");
+
+        bool isPlayer = characterIsPlayer.ContainsKey(action.user) && characterIsPlayer[action.user];
+        Color labelColor = isPlayer ? new Color(0.6f, 0.9f, 1f) : new Color(1f, 0.6f, 0.5f);
+        SpawnActionLabel(action.user.transform.position, abilityName, labelColor);
+    }
+
+    void SpawnActionLabel(Vector3 worldPos, string actionName, Color color)
+    {
+        GameObject obj = new GameObject("ActionLabel");
+        var label = obj.AddComponent<FloatingActionLabel>();
+        label.Initialize(actionName, worldPos, color);
     }
 
     void OnDamageDealt(CombatCharacter target, float damage)

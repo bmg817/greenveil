@@ -49,6 +49,7 @@ namespace Greenveil.Combat
         public int speed;
         public string basicAttackId;
         public string[] skillIds;
+        public int actionsPerTurn;
     }
 
     [Serializable]
@@ -168,7 +169,8 @@ namespace Greenveil.Combat
                 defense = data.defense,
                 speed = data.speed,
                 basicAttackId = data.basicAttackId,
-                skillIds = data.skillIds
+                skillIds = data.skillIds,
+                actionsPerTurn = data.actionsPerTurn > 0 ? data.actionsPerTurn : 1
             };
         }
 

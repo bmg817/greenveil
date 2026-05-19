@@ -28,6 +28,7 @@ namespace Greenveil.Combat
 
         private Ability basicAttack;
         private Ability[] skills;
+        private int actionsPerTurn = 1;
 
         public System.Action<float, float> OnHealthChanged;
         public System.Action<float, float> OnMPChanged;
@@ -53,6 +54,7 @@ namespace Greenveil.Combat
         public List<StatusEffect> ActiveStatusEffects => activeStatusEffects;
         public Ability BasicAttack => basicAttack;
         public Ability[] Skills => skills;
+        public int ActionsPerTurn => actionsPerTurn;
 
         private void Awake()
         {
